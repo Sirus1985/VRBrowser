@@ -16,9 +16,12 @@ services:
       - DB_PATH=./data/browser.db
       - LOG_DIR=./data/logs
       - DOCKER_IMAGE=virtual-browser:latest
+      # NEU: Docker Socket URL
+      - DOCKER_HOST=unix:///var/run/docker.sock
     volumes:
       - ./data:/app/data
       - ./frontend:/app/frontend
+      # NEU: Docker Socket mounten
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - vbrowser-net
