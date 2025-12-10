@@ -96,10 +96,17 @@ aiofiles==23.2.1
 ---
 
 ## 🔐 Sicherheit
-
 ### SSL-Zertifikat erstellen (selbstsigniert):
+```bash
+cd /opt/vbrowser/ssl
+openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes
+```
 
 ### SECRET_KEY generieren:
+```bash
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
 ---
 
 ## 📖 Nächste Schritte
