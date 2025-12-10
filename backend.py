@@ -131,7 +131,35 @@ class UserInfo(BaseModel):
 
 class DockerManager:
     def __init__(self):
-        self.client = docker.from_env()
+        """Initialize Docker client with explicit socket path"""
+        try:
+            # Method 1: Direct socket path (für Docker-in-Docker)
+            self.client = docker.DockerClient(base_url='unix:///var/run/docker.sock')
+            
+            # Teste ob Verbindung funktioniert
+            self.client.ping()
+            print("✓ Docker client initialized via socket")
+            
+        except Exception as e:
+            print(f"⚠️  Docker socket failed: {e}")
+            try:
+                # Method 2: Fallback - from_env() 
+                self.client = docker.from_env()
+                print("✓ Docker client initialized via from_env()")
+            except Exception as e2:
+                print(f"✗ Docker connection failed: {e2}")
+                self.client = None
+
+    def is_available(self):
+        """Check if Docker is available"""
+        if self.client is None:
+            return False
+        try:
+            self.client.ping()
+            return True
+        except:
+            return False
+
     
     async def start_browser_container(self, user_id: int, username: str, port: int) -> str:
         """Start a new browser container for user"""
