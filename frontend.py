@@ -30,6 +30,7 @@ def get_html() -> str:
         .badge.admin { background:#c0392b; color:#fff; }
         .badge.teamadmin { background:#dda108; color:#000; }
         .badge.team { background:#1a6b3c; color:#fff; }
+        .badge.active { background:#1a6b3c; color:#fff; }
         hr { border:none; border-top:1px solid #444; margin:4px 0; }
         #status { margin-top:auto; font-size:12px; color:#888; border-top:1px solid var(--border); padding-top:10px; }
         #content { flex:1; position:relative; background:#111; }
@@ -47,6 +48,9 @@ def get_html() -> str:
         .count { font-size:11px; color:#666; text-align:right; }
         .searchable { display:flex; flex-direction:column; gap:4px; }
         .searchable select { max-height:120px; }
+        .session-item { display:flex; flex-direction:column; gap:3px; background:#333; padding:8px 10px; border-radius:6px; font-size:12px; }
+        .session-item .s-user { font-weight:600; color:#fff; font-size:13px; }
+        .session-item .s-meta { color:#888; }
     </style>
 </head>
 <body>
@@ -68,7 +72,10 @@ def get_html() -> str:
             <div class="tabs" style="margin-top:8px">
                 <div class="tab active" onclick="switchTab('users')">Benutzer</div>
                 <div class="tab" id="teamsTabBtn" onclick="switchTab('teams')">Teams</div>
+                <div class="tab" id="sessionsTabBtn" onclick="switchTab('sessions')">Sessions</div>
             </div>
+
+            <!-- BENUTZER TAB -->
             <div id="tab-users" class="tab-content active section" style="margin-top:6px">
                 <h4>Benutzer</h4>
                 <div class="filter-row">
@@ -87,6 +94,8 @@ def get_html() -> str:
                 <label id="newIsAdminLabel"><input id="newIsAdmin" type="checkbox"> Superadmin</label>
                 <button class="secondary" onclick="addUser()">+ User anlegen</button>
             </div>
+
+            <!-- TEAMS TAB -->
             <div id="tab-teams" class="tab-content section" style="margin-top:6px">
                 <h4>Teams</h4>
                 <div id="teamList"></div>
@@ -105,6 +114,13 @@ def get_html() -> str:
                     <select id="taUser" size="4"></select>
                 </div>
                 <button class="secondary" onclick="assignTeamAdmin()">+ Als Team-Admin setzen</button>
+            </div>
+
+            <!-- SESSIONS TAB -->
+            <div id="tab-sessions" class="tab-content section" style="margin-top:6px">
+                <h4>Aktive Sessions</h4>
+                <button class="secondary" onclick="loadSessions()">&#8635; Aktualisieren</button>
+                <div id="sessionList"><div style="color:#666;font-size:13px">Lade...</div></div>
             </div>
         </div>
     </div>
@@ -164,6 +180,7 @@ function showSessionUI() {
     if (isAdmin || isTeamAdmin) {
         document.getElementById("adminPanel").classList.remove("hidden");
         document.getElementById("teamsTabBtn").classList.toggle("hidden", !isAdmin);
+        document.getElementById("sessionsTabBtn").classList.toggle("hidden", !isAdmin);
         document.getElementById("newIsAdminLabel").classList.toggle("hidden", !isAdmin);
     }
 }
@@ -172,9 +189,12 @@ function switchTab(tab) {
     document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
     document.querySelectorAll(".tab").forEach(el => el.classList.remove("active"));
     document.getElementById("tab-"+tab).classList.add("active");
-    document.querySelectorAll(".tab")[tab==="users"?0:1].classList.add("active");
+    const tabBtns = document.querySelectorAll(".tab");
+    const tabIndex = ["users","teams","sessions"].indexOf(tab);
+    if (tabBtns[tabIndex]) tabBtns[tabIndex].classList.add("active");
     if (tab === "users") loadUsers();
     if (tab === "teams") loadTeams();
+    if (tab === "sessions") loadSessions();
 }
 
 function toggleAdmin() {
@@ -330,18 +350,51 @@ async function assignTeamAdmin() {
     } catch(e) { setStatus(e.message, true); }
 }
 
+async function loadSessions() {
+    try {
+        const sessions = await api("/api/sessions");
+        if (sessions.length === 0) {
+            document.getElementById("sessionList").innerHTML =
+                "<div style='color:#666;font-size:13px'>Keine aktiven Sessions</div>";
+            return;
+        }
+        document.getElementById("sessionList").innerHTML = sessions.map(s => {
+            const since   = new Date(s.created_at * 1000).toLocaleString('de-DE');
+            const lastSeen = new Date(s.last_seen * 1000).toLocaleTimeString('de-DE');
+            return `<div class="session-item">
+                <div class="s-user">👤 ${s.username} <span class="badge active">● aktiv</span></div>
+                <div class="s-meta">Container: ${s.container_name}</div>
+                <div class="s-meta">Gestartet: ${since}</div>
+                <div class="s-meta">Zuletzt aktiv: ${lastSeen}</div>
+            </div>`;
+        }).join("");
+    } catch(e) { setStatus(e.message, true); }
+}
+
 async function startSession() {
     setStatus("Starte Container...");
     try {
         const data = await api("/api/session/start", "POST");
         setStatus("Lade Browser...");
+
+        // Cookie-Redirect zuerst in verstecktem iframe setzen
+        const cookieFrame = document.createElement("iframe");
+        cookieFrame.style.display = "none";
+        const browserHost = new URL(data.url).host;
+        cookieFrame.src = `https://${browserHost}/auth/set-cookie`
+            + `?token=${encodeURIComponent(data.token)}`
+            + `&redirect=${encodeURIComponent(data.url)}`;
+        document.body.appendChild(cookieFrame);
+
+        // Nach 2s Browser-iframe laden
         setTimeout(() => {
+            document.body.removeChild(cookieFrame);
             const frame = document.getElementById("browserFrame");
-            setTimeout(() => { frame.src = data.url; }, 300);
+            frame.src = data.url;
             frame.style.display = "block";
             document.getElementById("placeholder").style.display = "none";
             setStatus("Browser läuft: " + data.url);
-        }, 3000);
+        }, 2000);
     } catch(e) { setStatus(e.message, true); }
 }
 

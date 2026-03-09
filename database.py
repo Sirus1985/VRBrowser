@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import time
 from typing import Optional
 from config import DBPATH
 
@@ -46,6 +47,18 @@ def initdb():
             user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
             PRIMARY KEY (user_id, team_id)
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            session_id TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            username TEXT NOT NULL,
+            container_name TEXT NOT NULL,
+            token TEXT NOT NULL,
+            last_seen REAL NOT NULL,
+            created_at REAL NOT NULL
         )
     """)
 
@@ -182,5 +195,71 @@ def db_get_team_admins(team_id: int):
                JOIN team_admins ta ON u.id = ta.user_id
                WHERE ta.team_id = ?""",
             (team_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+# ---- Sessions ----
+
+def db_create_session(session_id: str, user_id: int, username: str, container_name: str, token: str):
+    now = time.time()
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT OR REPLACE INTO sessions
+               (session_id, user_id, username, container_name, token, last_seen, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (session_id, user_id, username, container_name, token, now, now),
+        )
+        conn.commit()
+
+
+def db_update_heartbeat(session_id: str):
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE sessions SET last_seen=? WHERE session_id=?",
+            (time.time(), session_id),
+        )
+        conn.commit()
+
+
+def db_delete_session(session_id: str):
+    with get_conn() as conn:
+        conn.execute("DELETE FROM sessions WHERE session_id=?", (session_id,))
+        conn.commit()
+
+
+def db_list_sessions():
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT s.session_id, s.username, s.container_name, s.last_seen, s.created_at,
+                      u.team_id
+               FROM sessions s
+               JOIN users u ON s.user_id = u.id
+               ORDER BY s.created_at DESC"""
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def db_get_session_by_token(token: str):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM sessions WHERE token=?", (token,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def db_get_session_by_user(user_id: int):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM sessions WHERE user_id=?", (user_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def db_get_timed_out_sessions(timeout: float):
+    cutoff = time.time() - timeout
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM sessions WHERE last_seen < ?", (cutoff,)
         ).fetchall()
     return [dict(r) for r in rows]

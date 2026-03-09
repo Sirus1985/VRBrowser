@@ -1,6 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
 from models import NewUser
-from database import db_list_users, db_get_user_by_id, db_add_user, db_delete_user, db_is_team_admin
+from database import (
+    db_list_users, db_get_user_by_id, db_add_user, db_delete_user,
+    db_is_team_admin, db_get_session_by_user, db_delete_session
+)
 from auth import require_admin_or_teamadmin
 from docker_manager import docker_manager
 
@@ -48,6 +51,10 @@ def delete_user(userid: int, user: dict = Depends(require_admin_or_teamadmin)):
     if not user.get("admin"):
         if not target["team_id"] or not db_is_team_admin(user["uid"], target["team_id"]):
             raise HTTPException(403, "Not your team")
-    docker_manager.stop_container(target["username"])
+    # Session + Container sauber stoppen
+    session = db_get_session_by_user(userid)
+    if session:
+        docker_manager.stop_container(session["container_name"])
+        db_delete_session(session["session_id"])
     db_delete_user(userid)
     return {"status": "ok"}
