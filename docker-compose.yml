@@ -3,10 +3,12 @@ version: '3.8'
 networks:
   proxy:
     driver: bridge
+    name: vbrowser_proxy    # ← hinzufügen
+
 
 services:
   traefik:
-    image: traefik:v3.0
+    image: traefik:2.11
     container_name: vbrowser-traefik
     restart: unless-stopped
     command:
@@ -16,74 +18,36 @@ services:
       - --providers.docker.exposedbydefault=false
       - --providers.docker.network=proxy
       - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      # HTTP zu HTTPS Redirect
-      - --entrypoints.web.http.redirections.entryPoint.to=websecure
-      - --entrypoints.web.http.redirections.entryPoint.scheme=https
-      # TLS mit Let's Encrypt (optional, siehe Kommentare unten)
-      # - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
-      # - --certificatesresolvers.letsencrypt.acme.email=your-email@example.com
-      # - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
-      # - --entrypoints.web.http.redirections.entryPoint.to=websecure
-      # - --entrypoints.web.http.redirections.entryPoint.scheme=https
-
+      # ForwardAuth Middleware global definieren
+      - --providers.file.directory=/etc/traefik/dynamic
     ports:
       - "80:80"
-      - "443:443"
-      - "8888:8080"  # Traefik Dashboard (optional)
+      - "8888:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      # Für Let's Encrypt Zertifikate (optional)
-      # - ./letsencrypt:/letsencrypt
+      - ./traefik-dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro  # ← neu
     networks:
       - proxy
-    labels:
-      - traefik.enable=true
-      # Dashboard Route (optional, Zugriff über http://your-domain:8888)
-      - traefik.http.routers.dashboard.rule=Host(`traefik.localhost`)
-      - traefik.http.routers.dashboard.service=api@internal
 
   backend:
     build: .
     container_name: vbrowser-backend
     restart: unless-stopped
-    environment:
-      - HOST=0.0.0.0
-      - PORT=8080
-      # Wichtig: DB in gemountetem Pfad, damit sie persistent ist
-      - DBPATH=/appdata/browser.db
-      # WICHTIG: Ändere diesen Secret Key in Produktion!
-      - SECRETKEY=change-this-secret-key-to-something-secure
-      - DOCKERHOST=unix:///var/run/docker.sock
-      - DOCKERIMAGE=jlesage/firefox:latest
-      # NEU: Base Domain für User-Container (Wildcard DNS erforderlich)
-      - BASE_DOMAIN=vbrowser.localhost
-      # NEU: Proxy Netzwerk Name
-      - PROXY_NETWORK=vbrowser_proxy
-      # NEU: Traefik Entrypoint
-      - TRAEFIK_ENTRYPOINT=websecure
-      # NEU: TLS aktivieren (true für HTTPS, false für HTTP)
-      - USE_TLS=false
-      # NEU: Let's Encrypt Resolver (wenn TLS aktiviert, sonst leer lassen)
-      - CERT_RESOLVER=
-
-
+    env_file:
+      - .env
     volumes:
-      # App-Code (Dev-Mode: Änderungen an backend.py greifen ohne rebuild)
       - ./backend.py:/app/backend.py
-      # Persistente Daten (SQLite DB)
       - ./.data:/appdata
-      # Docker Socket, damit Backend andere Container starten kann
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - proxy
     labels:
       - traefik.enable=true
-      - traefik.http.routers.vbrowser-backend.rule=Host(`vbrowser.localhost`)
-      - traefik.http.routers.vbrowser-backend.entrypoints=websecure
-      - traefik.http.routers.vbrowser-backend.tls=true
-      - traefik.http.services.vbrowser-backend.loadbalancer.server.port=8080
-      - traefik.enable=true
-      - traefik.http.routers.vbrowser-backend.rule=HostRegexp(`{host:.+}`)
+      - traefik.http.routers.vbrowser-backend.rule=Host(`vbrowser.home`)
       - traefik.http.routers.vbrowser-backend.entrypoints=web
       - traefik.http.services.vbrowser-backend.loadbalancer.server.port=8080
+      # Cookie-Setter auf allen Subdomains
+      - traefik.http.routers.vbrowser-auth.rule=HostRegexp(`{subdomain:[a-z0-9-]+}.vbrowser.home`) && Path(`/auth/set-cookie`)
+      - traefik.http.routers.vbrowser-auth.entrypoints=web
+      - traefik.http.routers.vbrowser-auth.service=vbrowser-backend
+      - traefik.http.routers.vbrowser-auth.priority=10

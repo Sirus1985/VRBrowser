@@ -2,7 +2,6 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies
 RUN pip install --no-cache-dir \
     fastapi \
     uvicorn[standard] \
@@ -11,12 +10,12 @@ RUN pip install --no-cache-dir \
     docker \
     pydantic
 
-# Copy application
-COPY backend.py /app/backend.py
+# Alle Dateien kopieren
+COPY main.py config.py models.py database.py auth.py docker_manager.py frontend.py session_manager.py /app/
+COPY routes/ /app/routes/
 
-# Create data directory
 RUN mkdir -p /appdata
 
 EXPOSE 8080
 
-CMD ["python", "backend.py"]
+CMD ["python", "main.py"]

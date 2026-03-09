@@ -1,0 +1,7 @@
+http:
+  middlewares:
+    vbrowser-auth:
+      forwardAuth:
+        address: "http://vbrowser-backend:8080/auth/verify"
+        authResponseHeaders:
+          - "X-Auth-User"

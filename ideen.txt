@@ -1,0 +1,24 @@
+Session-Management
+
+Session-Limit pro User – verhindert dass jemand 20 Container gleichzeitig startet
+
+Session-Wiederverbindung – User kann eine laufende Session wiederaufnehmen statt neu zu starten
+
+UI / Frontend
+Status-Dashboard – Übersicht aller laufenden Sessions (Admin-Ansicht)
+
+Ressourcen-Anzeige – CPU/RAM pro Container live anzeigen
+
+Browser-Auswahl – nicht nur Firefox, sondern auch Chromium oder andere Images
+
+Sicherheit
+Authentifizierung – Login vor dem Session-Start (z.B. Basic Auth oder OAuth)
+
+Netzwerk-Isolation – jeder Container bekommt ein eigenes Netzwerk, kein Container-zu-Container-Traffic
+
+Read-only Filesystem – Container können nichts auf dem Host persistent speichern
+
+Skalierung
+Multi-Host Support – Container auf mehrere Nodes verteilen (Docker Swarm / Kubernetes)
+
+Queue-System – wenn alle Slots belegt sind, User in Warteliste einreihen
