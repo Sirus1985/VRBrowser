@@ -3,33 +3,27 @@ from fastapi import HTTPException
 from docker import DockerClient
 from config import DOCKERHOST, DOCKERIMAGE, BASE_DOMAIN, PROXY_NETWORK, TRAEFIK_ENTRYPOINT, USE_TLS, CERT_RESOLVER
 
-
 logger = logging.getLogger("vbrowser")
-
 
 
 class DockerManager:
     def __init__(self):
         self.client = DockerClient(base_url=DOCKERHOST)
 
-
     def container_name(self, username: str) -> str:
         return f"vbrowser-{username}"
 
-
-    def stop_container(self, username: str):
-        name = self.container_name(username)
+    def stop_container(self, container_name: str):
         try:
-            c = self.client.containers.get(name)
+            c = self.client.containers.get(container_name)
             c.remove(force=True)
-            logger.info(f"Removed container {name}")
-        except Exception:
-            pass
-
+            logger.info(f"Removed container {container_name}")
+        except Exception as e:
+            logger.warning(f"Could not remove container {container_name}: {e}")
 
     def create_container(self, userid: int, username: str) -> str:
         name = self.container_name(username)
-        self.stop_container(username)
+        self.stop_container(name)  # ← name statt username
         host = f"{username}.{BASE_DOMAIN}"
         router = f"vbrowser-user-{userid}"
         service = f"vbrowser-user-{userid}"
@@ -69,7 +63,6 @@ class DockerManager:
         except Exception as e:
             logger.error(f"Container start failed: {e}")
             raise HTTPException(500, f"Container start failed: {e}")
-
 
 
 docker_manager = DockerManager()
