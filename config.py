@@ -8,7 +8,7 @@ DOCKERHOST = os.getenv("DOCKERHOST", "unix:///var/run/docker.sock")
 DOCKERIMAGE = os.getenv("DOCKERIMAGE", "jlesage/firefox:latest")
 BASE_DOMAIN = os.getenv("BASE_DOMAIN", "vbrowser.home")
 PROXY_NETWORK = os.getenv("PROXY_NETWORK", "vbrowser_proxy")
-TRAEFIK_ENTRYPOINT = os.getenv("TRAEFIK_ENTRYPOINT", "web")
+TRAEFIK_ENTRYPOINT = os.getenv("TRAEFIK_ENTRYPOINT", "websecure")
 USE_TLS = os.getenv("USE_TLS", "false").lower() == "true"
 CERT_RESOLVER = os.getenv("CERT_RESOLVER", "")
 SESSION_TIMEOUT = int(os.getenv("SESSION_TIMEOUT", "300"))  # Sekunden, default 5 min

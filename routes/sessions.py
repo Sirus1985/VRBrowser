@@ -31,7 +31,8 @@ def start_session(user: dict = Depends(get_current_user)):
         value=token,
         domain=f".{BASE_DOMAIN}",
         httponly=True,
-        samesite="lax",
+        samesite="none",   # ← war: "lax"
+        secure=True,     
         max_age=86400
     )
     return response
@@ -59,10 +60,44 @@ def heartbeat(session_id: str):
 
 @router.get("/auth/verify")
 def auth_verify(request: Request):
+    import logging
+    logger = logging.getLogger("vbrowser")
+    logger.warning(f"AUTH VERIFY - path: {request.headers.get('x-forwarded-uri', 'NONE')}")
+    logger.warning(f"AUTH VERIFY - upgrade: {request.headers.get('upgrade', 'NONE')}")
+    logger.warning(f"AUTH VERIFY - referer: {request.headers.get('referer', 'NONE')}")
+    logger.warning(f"AUTH VERIFY - origin: {request.headers.get('origin', 'NONE')}")
+    logger.warning(f"AUTH VERIFY - cookie: {'YES' if request.cookies.get('vbrowser_token') else 'NO'}")
+
     token = request.cookies.get("vbrowser_token")
     if not token or not validate_token(token):
+        logger.warning("AUTH VERIFY - RESULT: 401 (no/invalid token)")
         return Response(status_code=401)
+
+    # /websockify durchlassen wenn Token gültig
+    path = request.headers.get("x-forwarded-uri", "")
+    if path.startswith("/websockify"):
+        logger.warning("AUTH VERIFY - RESULT: 200 (websocket)")
+        return Response(status_code=200)
+
+    # Direktzugriff blocken
+    referer = request.headers.get("referer", "")
+    origin  = request.headers.get("origin", "")
+    allowed_domain = BASE_DOMAIN
+
+    referer_ok = f".{allowed_domain}" in referer or f"https://{allowed_domain}" in referer
+    origin_ok  = f".{allowed_domain}" in origin  or f"https://{allowed_domain}" in origin
+    no_headers = not referer and not origin
+
+    if no_headers or (not referer_ok and not origin_ok):
+        logger.warning(f"AUTH VERIFY - RESULT: 403 (referer={referer} origin={origin})")
+        return Response(status_code=403)
+
+    logger.warning("AUTH VERIFY - RESULT: 200 (ok)")
     return Response(status_code=200)
+
+
+
+
 
 @router.get("/auth/set-cookie")
 def set_cookie_redirect(token: str, redirect: str):
@@ -73,7 +108,8 @@ def set_cookie_redirect(token: str, redirect: str):
         key="vbrowser_token",
         value=token,
         httponly=True,
-        samesite="lax",
+        samesite="none",   # ← war: "lax"
+        secure=True,   
         max_age=86400
     )
     return response

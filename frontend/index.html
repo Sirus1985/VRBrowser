@@ -1,4 +1,11 @@
-<!DOCTYPE html>
+from fastapi import APIRouter
+from fastapi.responses import HTMLResponse
+
+router = APIRouter()
+
+@router.get("/", response_class=HTMLResponse)
+def frontend():
+    return """<!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
@@ -477,7 +484,6 @@
                 }
 
                 const loginData = await loginResponse.json();
-                console.log("loginData:", loginData);
                 currentToken = loginData.token;
                 currentUser = username;
 
@@ -489,7 +495,6 @@
 
                 if (!sessionResponse.ok) {
                     const error = await sessionResponse.json();
-                    console.error("Session start error:", error);
                     document.getElementById('loginError').textContent = 'Session konnte nicht gestartet werden';
                     document.getElementById('loginBtn').disabled = false;
                     document.getElementById('loginBtn').textContent = 'Anmelden';
@@ -497,7 +502,6 @@
                 }
 
                 const sessionData = await sessionResponse.json();
-                console.log("sessionData:", sessionData);
                 sessionId = sessionData.session_id;
 
                 document.getElementById('userDisplay').textContent = '👤 ' + username;
@@ -506,17 +510,19 @@
 
                 startHeartbeat();
 
-                // 500ms warten dann Cookie-Setter aufrufen
+                // Schritt 3: iframe mit set-cookie Redirect laden
                 setTimeout(() => {
-                    const iframe = document.createElement('iframe');
-                    const cookieUrl = `http://${sessionData.session_id}.${window.location.hostname}/auth/set-cookie`
+                    const cookieUrl = `https://${sessionData.session_id}.${window.location.hostname}/auth/set-cookie`
                         + `?token=${encodeURIComponent(sessionData.token)}`
                         + `&redirect=${encodeURIComponent(sessionData.url)}`;
                     console.log("cookieUrl:", cookieUrl);
+
+                    const iframe = document.createElement('iframe');
                     iframe.src = cookieUrl;
                     iframe.style.width = '100%';
                     iframe.style.height = '100%';
                     iframe.style.border = 'none';
+
                     const canvas = document.getElementById('noVNC_canvas');
                     canvas.parentElement.replaceChild(iframe, canvas);
                     document.getElementById('spinner').style.display = 'none';
@@ -600,4 +606,4 @@
         });
     </script>
 </body>
-</html>
+</html>"""

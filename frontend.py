@@ -337,7 +337,7 @@ async function startSession() {
         setStatus("Lade Browser...");
         setTimeout(() => {
             const frame = document.getElementById("browserFrame");
-            frame.src = data.url;
+            setTimeout(() => { frame.src = data.url; }, 300);
             frame.style.display = "block";
             document.getElementById("placeholder").style.display = "none";
             setStatus("Browser läuft: " + data.url);

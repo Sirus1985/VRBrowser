@@ -1,5 +1,18 @@
 http:
   middlewares:
+    redirect-https:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
     vbrowser-auth:
       forwardAuth:
         address: "http://vbrowser-backend:8080/auth/verify"
+        authResponseHeaders:
+          - "X-Forwarded-User"
+        trustForwardHeader: true   # ← NEU: leitet X-Forwarded-* Header weiter
+
+tls:
+  certificates:
+    - certFile: /etc/traefik/certs/cert.pem      # ← mkcert Zertifikat
+      keyFile: /etc/traefik/certs/key.pem
