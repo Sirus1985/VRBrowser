@@ -1,5 +1,3 @@
-version: '3.8'
-
 networks:
   proxy:
     driver: bridge
@@ -15,7 +13,7 @@ services:
       - --api.insecure=true
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
-      - --providers.docker.network=proxy
+      - --providers.docker.network=vbrowser_proxy
       - --entrypoints.web.address=:80
       - --providers.file.directory=/etc/traefik/dynamic
     ports:
@@ -43,7 +41,7 @@ services:
       - traefik.enable=true
 
       # Haupt-Router (HTTP, extern aber über ipv64 schon HTTPS terminiert)
-      - traefik.http.routers.vbrowser-backend.rule=Host(`sirus.ipv64.de`)
+      - traefik.http.routers.vbrowser-backend.rule=Host(`bin-krank.info`)
       - traefik.http.routers.vbrowser-backend.entrypoints=web
       - traefik.http.services.vbrowser-backend.loadbalancer.server.port=8080
 
@@ -51,7 +49,16 @@ services:
       # das macht das ipv64-CDN (Browser kommt ohnehin per https rein)
 
       # Auth-Router (gleicher Service, andere Rule)
-      - traefik.http.routers.vbrowser-auth.rule=HostRegexp(`{subdomain:[a-z0-9-]+}.sirus.ipv64.de`) && Path(`/auth/set-cookie`)
+      - traefik.http.routers.vbrowser-auth.rule=HostRegexp(`{subdomain:[a-z0-9-]+}.bin-krank.info`) && Path(`/auth/set-cookie`)
       - traefik.http.routers.vbrowser-auth.entrypoints=web
       - traefik.http.routers.vbrowser-auth.service=vbrowser-backend
       - traefik.http.routers.vbrowser-auth.priority=10
+
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}

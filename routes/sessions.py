@@ -20,7 +20,7 @@ def start_session(user: dict = Depends(get_current_user)):
     if existing:
         token   = existing["token"]
         host_id = existing["container_name"].replace("vbrowser-", "")
-        url     = f"{'https' if USE_TLS else 'http'}://{host_id}.{BASE_DOMAIN}/"
+        url     = f"https://{host_id}.{BASE_DOMAIN}/"
         response = JSONResponse({
             "status": "resumed",
             "url": url,

@@ -37,12 +37,7 @@ class DockerManager:
             f"traefik.http.routers.{router}-setcookie.priority": "20",
         }
 
-        if USE_TLS:
-            labels[f"traefik.http.routers.{router}.tls"] = "true"
-            labels[f"traefik.http.routers.{router}-setcookie.tls"] = "true"
-            if CERT_RESOLVER:
-                labels[f"traefik.http.routers.{router}.tls.certresolver"] = CERT_RESOLVER
-                labels[f"traefik.http.routers.{router}-setcookie.tls.certresolver"] = CERT_RESOLVER
+
 
         try:
             self.client.containers.run(
@@ -51,8 +46,7 @@ class DockerManager:
                 environment={"KEEP_APP_RUNNING": "1", "FF_OPEN_URL": "https://google.com"},
 
             )
-            protocol = "https" if USE_TLS else "http"
-            return f"{protocol}://{host}/"
+            return f"https://{host}/"
         except Exception as e:
             logger.error(f"Container start failed: {e}")
             raise HTTPException(500, f"Container start failed: {e}")
