@@ -17,16 +17,13 @@ services:
       - --providers.docker.exposedbydefault=false
       - --providers.docker.network=proxy
       - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443        # ← NEU: HTTPS EntryPoint
       - --providers.file.directory=/etc/traefik/dynamic
     ports:
-      - "80:80"
-      - "443:443"                                    # ← NEU
-      - "8888:8080"
+      - "80:80"          # nur HTTP, HTTPS macht ipv64-CDN
+      - "8888:8080"      # Dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik-dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
-      - ./certs:/etc/traefik/certs:ro               # ← NEU: Zertifikate einbinden
     networks:
       - proxy
 
@@ -44,18 +41,17 @@ services:
       - proxy
     labels:
       - traefik.enable=true
-      # HTTP → HTTPS Redirect
-      - traefik.http.routers.vbrowser-http.rule=Host(`vbrowser.home`)
-      - traefik.http.routers.vbrowser-http.entrypoints=web
-      - traefik.http.routers.vbrowser-http.middlewares=redirect-https@file
-      # HTTPS Router (Hauptrouter)
-      - traefik.http.routers.vbrowser-backend.rule=Host(`vbrowser.home`)
-      - traefik.http.routers.vbrowser-backend.entrypoints=websecure
-      - traefik.http.routers.vbrowser-backend.tls=true
+
+      # Haupt-Router (HTTP, extern aber über ipv64 schon HTTPS terminiert)
+      - traefik.http.routers.vbrowser-backend.rule=Host(`sirus.ipv64.de`)
+      - traefik.http.routers.vbrowser-backend.entrypoints=web
       - traefik.http.services.vbrowser-backend.loadbalancer.server.port=8080
-      # Auth-Router ebenfalls auf HTTPS
-      - traefik.http.routers.vbrowser-auth.rule=HostRegexp(`{subdomain:[a-z0-9-]+}.vbrowser.home`) && Path(`/auth/set-cookie`)
-      - traefik.http.routers.vbrowser-auth.entrypoints=websecure
-      - traefik.http.routers.vbrowser-auth.tls=true
+
+      # HTTP → HTTPS Redirect brauchst du jetzt nicht mehr in Traefik,
+      # das macht das ipv64-CDN (Browser kommt ohnehin per https rein)
+
+      # Auth-Router (gleicher Service, andere Rule)
+      - traefik.http.routers.vbrowser-auth.rule=HostRegexp(`{subdomain:[a-z0-9-]+}.sirus.ipv64.de`) && Path(`/auth/set-cookie`)
+      - traefik.http.routers.vbrowser-auth.entrypoints=web
       - traefik.http.routers.vbrowser-auth.service=vbrowser-backend
       - traefik.http.routers.vbrowser-auth.priority=10
