@@ -394,7 +394,7 @@ async function startSession() {
             frame.style.display = "block";
             document.getElementById("placeholder").style.display = "none";
             setStatus("Browser läuft: " + data.url);
-        }, 2000);
+        }, 5000);
     } catch(e) { setStatus(e.message, true); }
 }
 
