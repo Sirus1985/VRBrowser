@@ -17,4 +17,5 @@ def login(u: UserLogin):
         "isadmin": bool(user["isadmin"]),
         "team_id": user["team_id"],
         "admin_teams": admin_teams,
+        "auto_start_session": bool(user.get("auto_start_session", 0)),  # NEU
     }

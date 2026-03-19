@@ -33,9 +33,11 @@ def initdb():
         )
     """)
 
+    # Migrationen: neue Spalten bei bestehenden DBs ergänzen
     for col in [
         "ALTER TABLE users ADD COLUMN isadmin INTEGER DEFAULT 0",
         "ALTER TABLE users ADD COLUMN team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL",
+        "ALTER TABLE users ADD COLUMN auto_start_session INTEGER DEFAULT 0",  # NEU
     ]:
         try:
             cur.execute(col)
@@ -81,18 +83,18 @@ def get_conn():
 def db_get_user(username: str, password: str):
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT id, username, isadmin, team_id FROM users WHERE username=? AND password=?",
+            "SELECT id, username, isadmin, team_id, auto_start_session FROM users WHERE username=? AND password=?",
             (username, password),
         ).fetchone()
-    return dict(row) if row else None
+        return dict(row) if row else None
 
 
 def db_get_user_by_id(userid: int):
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT id, username, isadmin, team_id FROM users WHERE id=?", (userid,)
+            "SELECT id, username, isadmin, team_id, auto_start_session FROM users WHERE id=?", (userid,)
         ).fetchone()
-    return dict(row) if row else None
+        return dict(row) if row else None
 
 
 def db_list_users(team_id: Optional[int] = None):
@@ -106,7 +108,7 @@ def db_list_users(team_id: Optional[int] = None):
             rows = conn.execute(
                 "SELECT id, username, isadmin, team_id FROM users ORDER BY username"
             ).fetchall()
-    return [dict(r) for r in rows]
+        return [dict(r) for r in rows]
 
 
 def db_add_user(username: str, password: str, isadmin: bool, team_id: Optional[int] = None):
@@ -124,18 +126,37 @@ def db_delete_user(userid: int):
         conn.commit()
 
 
+def db_update_user_settings(user_id: int, auto_start_session: bool):
+    """Speichert Nutzer-Einstellungen."""
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE users SET auto_start_session=? WHERE id=?",
+            (1 if auto_start_session else 0, user_id),
+        )
+        conn.commit()
+
+
+def db_get_user_settings(user_id: int) -> dict:
+    """Gibt Nutzer-Einstellungen zurück."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT auto_start_session FROM users WHERE id=?", (user_id,)
+        ).fetchone()
+        return dict(row) if row else {"auto_start_session": 0}
+
+
 # ---- Teams ----
 
 def db_list_teams():
     with get_conn() as conn:
         rows = conn.execute("SELECT id, name FROM teams ORDER BY name").fetchall()
-    return [dict(r) for r in rows]
+        return [dict(r) for r in rows]
 
 
 def db_get_team(team_id: int):
     with get_conn() as conn:
         row = conn.execute("SELECT id, name FROM teams WHERE id=?", (team_id,)).fetchone()
-    return dict(row) if row else None
+        return dict(row) if row else None
 
 
 def db_add_team(name: str) -> int:
@@ -161,7 +182,7 @@ def db_get_admin_teams(user_id: int):
                WHERE ta.user_id = ?""",
             (user_id,),
         ).fetchall()
-    return [dict(r) for r in rows]
+        return [dict(r) for r in rows]
 
 
 def db_is_team_admin(user_id: int, team_id: int) -> bool:
@@ -169,7 +190,7 @@ def db_is_team_admin(user_id: int, team_id: int) -> bool:
         row = conn.execute(
             "SELECT 1 FROM team_admins WHERE user_id=? AND team_id=?", (user_id, team_id)
         ).fetchone()
-    return row is not None
+        return row is not None
 
 
 def db_assign_team_admin(user_id: int, team_id: int):
@@ -196,7 +217,7 @@ def db_get_team_admins(team_id: int):
                WHERE ta.team_id = ?""",
             (team_id,),
         ).fetchall()
-    return [dict(r) for r in rows]
+        return [dict(r) for r in rows]
 
 
 # ---- Sessions ----
@@ -237,23 +258,19 @@ def db_list_sessions():
                JOIN users u ON s.user_id = u.id
                ORDER BY s.created_at DESC"""
         ).fetchall()
-    return [dict(r) for r in rows]
+        return [dict(r) for r in rows]
 
 
 def db_get_session_by_token(token: str):
     with get_conn() as conn:
-        row = conn.execute(
-            "SELECT * FROM sessions WHERE token=?", (token,)
-        ).fetchone()
-    return dict(row) if row else None
+        row = conn.execute("SELECT * FROM sessions WHERE token=?", (token,)).fetchone()
+        return dict(row) if row else None
 
 
 def db_get_session_by_user(user_id: int):
     with get_conn() as conn:
-        row = conn.execute(
-            "SELECT * FROM sessions WHERE user_id=?", (user_id,)
-        ).fetchone()
-    return dict(row) if row else None
+        row = conn.execute("SELECT * FROM sessions WHERE user_id=?", (user_id,)).fetchone()
+        return dict(row) if row else None
 
 
 def db_get_timed_out_sessions(timeout: float):
@@ -262,4 +279,5 @@ def db_get_timed_out_sessions(timeout: float):
         rows = conn.execute(
             "SELECT * FROM sessions WHERE last_seen < ?", (cutoff,)
         ).fetchall()
-    return [dict(r) for r in rows]
+        return [dict(r) for r in rows]
+

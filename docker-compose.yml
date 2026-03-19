@@ -35,6 +35,8 @@ services:
       - ./backend.py:/app/backend.py
       - ./.data:/appdata
       - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/vbrowser/seccomp_profile.json:/opt/vbrowser/seccomp_profile.json:ro 
+
     networks:
       - proxy
     labels:

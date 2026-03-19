@@ -6,10 +6,59 @@ def get_html() -> str:
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>VBrowser</title>
     <style>
-        :root { --bg:#1e1e1e; --panel:#252526; --border:#333; --accent:#0e639c; --text:#ccc; --green:#2da44e; }
+        :root { --bg:#1e1e1e; --panel:#252526; --border:#333; --accent:#0e639c; --text:#ccc; --green:#2da44e; --sidebar-w:320px; }
         * { box-sizing:border-box; }
         body { background:var(--bg); color:var(--text); font-family:-apple-system,system-ui,sans-serif; display:flex; height:100vh; margin:0; overflow:hidden; }
-        #sidebar { width:320px; background:var(--panel); padding:20px; display:flex; flex-direction:column; gap:10px; border-right:1px solid var(--border); overflow-y:auto; }
+
+        #sidebar {
+            width: var(--sidebar-w);
+            min-width: var(--sidebar-w);
+            background: var(--panel);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            overflow-x: hidden;
+            transition: min-width 0.25s ease, width 0.25s ease, padding 0.25s ease, opacity 0.2s ease;
+        }
+        body.sidebar-collapsed #sidebar {
+            width: 0;
+            min-width: 0;
+            padding: 0;
+            opacity: 0;
+            pointer-events: none;
+            border-right: none;
+        }
+
+        #sidebarToggle {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 100;
+            width: 18px;
+            height: 48px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-left: none;
+            border-radius: 0 6px 6px 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            font-size: 10px;
+            padding: 0;
+            transition: left 0.25s ease, background 0.15s;
+        }
+        #sidebarToggle:hover { background: #333; color: #fff; }
+
+        #content { flex:1; position:relative; background:#111; }
+        iframe { width:100%; height:100%; border:none; display:none; }
+        #placeholder { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#555; font-size:15px; }
+
         h3 { margin:0 0 4px 0; color:#fff; font-weight:600; }
         h4 { margin:0 0 6px 0; color:#aaa; font-size:12px; text-transform:uppercase; letter-spacing:1px; }
         input, select { padding:9px; border-radius:6px; border:1px solid #555; background:#3c3c3c; color:#fff; width:100%; font-size:14px; }
@@ -18,7 +67,9 @@ def get_html() -> str:
         button.green { background:var(--green); }
         button.secondary { background:#3a3d41; border:1px solid #555; }
         button.danger { background:#8b2010; }
+        button.reset { background:#c0392b; }
         button.small { padding:4px 8px; font-size:12px; width:auto; }
+        button:disabled { opacity:0.4; cursor:not-allowed; }
         .hidden { display:none !important; }
         .section { background:#2d2d2d; padding:12px; border:1px solid #444; border-radius:8px; display:flex; flex-direction:column; gap:8px; }
         .item { display:flex; justify-content:space-between; align-items:center; background:#333; padding:7px 10px; border-radius:6px; font-size:13px; gap:6px; }
@@ -33,9 +84,6 @@ def get_html() -> str:
         .badge.active { background:#1a6b3c; color:#fff; }
         hr { border:none; border-top:1px solid #444; margin:4px 0; }
         #status { margin-top:auto; font-size:12px; color:#888; border-top:1px solid var(--border); padding-top:10px; }
-        #content { flex:1; position:relative; background:#111; }
-        iframe { width:100%; height:100%; border:none; display:none; }
-        #placeholder { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#555; font-size:15px; }
         label { display:flex; gap:8px; align-items:center; font-size:13px; }
         input[type=checkbox] { width:auto; }
         .tabs { display:flex; gap:4px; }
@@ -51,19 +99,38 @@ def get_html() -> str:
         .session-item { display:flex; flex-direction:column; gap:3px; background:#333; padding:8px 10px; border-radius:6px; font-size:12px; }
         .session-item .s-user { font-weight:600; color:#fff; font-size:13px; }
         .session-item .s-meta { color:#888; }
+        .settings-hint { font-size:11px; color:#666; margin-top:-4px; }
     </style>
 </head>
 <body>
 <div id="sidebar">
-    <h3>VBrowser</h3>
+    <!-- Titelzeile mit Logout oben rechts -->
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0;">VBrowser</h3>
+        <button class="secondary hidden" id="logoutBtn" onclick="logout()"
+                style="width:auto; padding:5px 10px; font-size:12px;">
+            Logout
+        </button>
+    </div>
+
     <div id="loginForm" class="section">
         <input id="username" placeholder="Benutzername" autocomplete="username">
         <input id="password" placeholder="Passwort" type="password" autocomplete="current-password">
         <button onclick="doLogin()">Einloggen</button>
     </div>
     <div id="sessionControls" class="hidden section">
-        <button class="green" onclick="startSession()">&#9654; Session starten</button>
-        <button class="danger" onclick="stopSession()">&#9632; Session beenden</button>
+        <button class="green" id="btnStart" onclick="startSession()">&#9654; Session starten</button>
+        <button class="danger" id="btnStop" onclick="stopSession()" disabled>&#9632; Session beenden</button>
+    </div>
+    <div id="settingsPanel" class="hidden section">
+        <h4>&#9881; Einstellungen</h4>
+        <label>
+            <input type="checkbox" id="autoStartCb" onchange="saveSettings()">
+            Session automatisch nach Login starten
+        </label>
+        <hr>
+        <button class="reset" onclick="resetProfile()">&#128308; Firefox-Profil zuruecksetzen</button>
+        <div class="settings-hint">Loescht alle Einstellungen, Lesezeichen und den Verlauf dauerhaft.</div>
     </div>
     <div id="adminPanel" class="hidden">
         <hr>
@@ -74,8 +141,6 @@ def get_html() -> str:
                 <div class="tab" id="teamsTabBtn" onclick="switchTab('teams')">Teams</div>
                 <div class="tab" id="sessionsTabBtn" onclick="switchTab('sessions')">Sessions</div>
             </div>
-
-            <!-- BENUTZER TAB -->
             <div id="tab-users" class="tab-content active section" style="margin-top:6px">
                 <h4>Benutzer</h4>
                 <div class="filter-row">
@@ -94,8 +159,6 @@ def get_html() -> str:
                 <label id="newIsAdminLabel"><input id="newIsAdmin" type="checkbox"> Superadmin</label>
                 <button class="secondary" onclick="addUser()">+ User anlegen</button>
             </div>
-
-            <!-- TEAMS TAB -->
             <div id="tab-teams" class="tab-content section" style="margin-top:6px">
                 <h4>Teams</h4>
                 <div id="teamList"></div>
@@ -115,8 +178,6 @@ def get_html() -> str:
                 </div>
                 <button class="secondary" onclick="assignTeamAdmin()">+ Als Team-Admin setzen</button>
             </div>
-
-            <!-- SESSIONS TAB -->
             <div id="tab-sessions" class="tab-content section" style="margin-top:6px">
                 <h4>Aktive Sessions</h4>
                 <button class="secondary" onclick="loadSessions()">&#8635; Aktualisieren</button>
@@ -124,24 +185,56 @@ def get_html() -> str:
             </div>
         </div>
     </div>
-    <button class="secondary hidden" id="logoutBtn" onclick="logout()">Logout</button>
     <div id="status">Bereit</div>
 </div>
+
 <div id="content">
+    <button id="sidebarToggle" onclick="toggleSidebar()" title="Sidebar ein-/ausblenden (Ctrl+B)">&#9664;</button>
     <div id="placeholder">Bitte einloggen...</div>
     <iframe id="browserFrame"></iframe>
 </div>
+
 <script>
 let token = localStorage.getItem("token");
 let currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
 let allUsers = [], allTeams = [], teamAdminMap = {};
 if (token && currentUser) showSessionUI();
 
+// ── Sidebar Toggle ──
+function toggleSidebar() {
+    const collapsed = document.body.classList.toggle("sidebar-collapsed");
+    document.getElementById("sidebarToggle").innerHTML = collapsed ? "&#9654;" : "&#9664;";
+    localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0");
+}
+if (localStorage.getItem("sidebarCollapsed") === "1") {
+    document.body.classList.add("sidebar-collapsed");
+    document.getElementById("sidebarToggle").innerHTML = "&#9654;";
+}
+document.addEventListener("keydown", e => {
+    if (e.ctrlKey && e.key === "b") { e.preventDefault(); toggleSidebar(); }
+});
+
+// ── Session State ──
+function setSessionState(running) {
+    document.getElementById("btnStart").disabled = running;
+    document.getElementById("btnStop").disabled = !running;
+}
+
 function setStatus(msg, isError=false) {
     const el = document.getElementById("status");
     el.textContent = msg;
     el.style.color = isError ? "#f66" : "#888";
 }
+
+function setButtons(disabled) {
+    document.querySelectorAll("button").forEach(b => {
+        // Session-Buttons und kleine Buttons nicht pauschal anfassen
+        if (!b.classList.contains("small") && b.id !== "btnStart" && b.id !== "btnStop") {
+            b.disabled = disabled;
+        }
+    });
+}
+
 
 async function api(path, method="GET", body=null) {
     const opts = { method, headers: { "Authorization": `Bearer ${token}` } };
@@ -151,7 +244,16 @@ async function api(path, method="GET", body=null) {
     return res.json();
 }
 
+// ── Enter-Taste im Login ──
+document.getElementById("username").addEventListener("keydown", e => {
+    if (e.key === "Enter") document.getElementById("password").focus();
+});
+document.getElementById("password").addEventListener("keydown", e => {
+    if (e.key === "Enter") doLogin();
+});
+
 async function doLogin() {
+    setButtons(true);
     const u = document.getElementById("username").value;
     const p = document.getElementById("password").value;
     setStatus("Logge ein...");
@@ -167,14 +269,19 @@ async function doLogin() {
         localStorage.setItem("currentUser", JSON.stringify(data));
         showSessionUI();
         setStatus("Eingeloggt als " + u);
+        if (data.auto_start_session) {
+            setTimeout(() => startSession(), 500);
+        }
     } catch(e) { setStatus(e.message, true); }
+    setButtons(false);
 }
 
 function showSessionUI() {
     document.getElementById("loginForm").classList.add("hidden");
     document.getElementById("sessionControls").classList.remove("hidden");
+    document.getElementById("settingsPanel").classList.remove("hidden");
     document.getElementById("logoutBtn").classList.remove("hidden");
-    document.getElementById("placeholder").textContent = "Bereit zum Starten...";
+    document.getElementById("placeholder").textContent = "";
     const isAdmin = currentUser?.isadmin;
     const isTeamAdmin = currentUser?.admin_teams?.length > 0;
     if (isAdmin || isTeamAdmin) {
@@ -183,6 +290,38 @@ function showSessionUI() {
         document.getElementById("sessionsTabBtn").classList.toggle("hidden", !isAdmin);
         document.getElementById("newIsAdminLabel").classList.toggle("hidden", !isAdmin);
     }
+    loadSettings();
+}
+
+async function loadSettings() {
+    try {
+        const data = await api("/api/user/settings");
+        document.getElementById("autoStartCb").checked = !!data.auto_start_session;
+    } catch(e) {}
+}
+
+async function saveSettings() {
+    const auto = document.getElementById("autoStartCb").checked;
+    try {
+        await api("/api/user/settings", "PATCH", { auto_start_session: auto });
+        setStatus("Einstellungen gespeichert");
+    } catch(e) { setStatus(e.message, true); }
+}
+
+async function resetProfile() {
+    if (!confirm("Wirklich das Firefox-Profil zuruecksetzen? Alle Lesezeichen und Einstellungen werden geloescht!")) return;
+    setButtons(true);
+    setStatus("Setze Profil zurueck...");
+    try {
+        await api("/api/session/reset", "POST");
+        document.getElementById("browserFrame").src = "";
+        document.getElementById("browserFrame").style.display = "none";
+        document.getElementById("placeholder").style.display = "flex";
+        document.getElementById("placeholder").textContent = "Profil zurueckgesetzt. Neue Session starten.";
+        setStatus("Profil zurueckgesetzt");
+        setSessionState(false);
+    } catch(e) { setStatus(e.message, true); }
+    setButtons(false);
 }
 
 function switchTab(tab) {
@@ -278,11 +417,11 @@ async function addUser() {
 }
 
 async function deleteUser(id) {
-    if (!confirm("User wirklich löschen?")) return;
+    if (!confirm("User wirklich loeschen?")) return;
     try {
         await api(`/api/users/${id}`, "DELETE");
         loadUsers();
-        setStatus("User gelöscht");
+        setStatus("User geloescht");
     } catch(e) { setStatus(e.message, true); }
 }
 
@@ -331,18 +470,18 @@ async function addTeam() {
 }
 
 async function deleteTeam(id) {
-    if (!confirm("Team wirklich löschen?")) return;
+    if (!confirm("Team wirklich loeschen?")) return;
     try {
         await api(`/api/teams/${id}`, "DELETE");
         loadTeams(); loadUsers();
-        setStatus("Team gelöscht");
+        setStatus("Team geloescht");
     } catch(e) { setStatus(e.message, true); }
 }
 
 async function assignTeamAdmin() {
     const team_id = parseInt(document.getElementById("taTeam").value);
     const user_id = parseInt(document.getElementById("taUser").value);
-    if (!team_id || !user_id) return setStatus("Bitte Team und User wählen", true);
+    if (!team_id || !user_id) return setStatus("Bitte Team und User waehlen", true);
     try {
         await api(`/api/teams/${team_id}/admins`, "POST", {user_id});
         loadUsers();
@@ -359,10 +498,10 @@ async function loadSessions() {
             return;
         }
         document.getElementById("sessionList").innerHTML = sessions.map(s => {
-            const since   = new Date(s.created_at * 1000).toLocaleString('de-DE');
+            const since = new Date(s.created_at * 1000).toLocaleString('de-DE');
             const lastSeen = new Date(s.last_seen * 1000).toLocaleTimeString('de-DE');
             return `<div class="session-item">
-                <div class="s-user">👤 ${s.username} <span class="badge active">● aktiv</span></div>
+                <div class="s-user">&#128100; ${s.username} <span class="badge active">&#9679; aktiv</span></div>
                 <div class="s-meta">Container: ${s.container_name}</div>
                 <div class="s-meta">Gestartet: ${since}</div>
                 <div class="s-meta">Zuletzt aktiv: ${lastSeen}</div>
@@ -372,12 +511,11 @@ async function loadSessions() {
 }
 
 async function startSession() {
+    setButtons(true);
     setStatus("Starte Container...");
     try {
         const data = await api("/api/session/start", "POST");
         setStatus("Lade Browser...");
-
-        // Cookie-Redirect zuerst in verstecktem iframe setzen
         const cookieFrame = document.createElement("iframe");
         cookieFrame.style.display = "none";
         const browserHost = new URL(data.url).host;
@@ -385,29 +523,48 @@ async function startSession() {
             + `?token=${encodeURIComponent(data.token)}`
             + `&redirect=${encodeURIComponent(data.url)}`;
         document.body.appendChild(cookieFrame);
-
-        // Nach 2s Browser-iframe laden
         setTimeout(() => {
             document.body.removeChild(cookieFrame);
             const frame = document.getElementById("browserFrame");
             frame.src = data.url;
             frame.style.display = "block";
             document.getElementById("placeholder").style.display = "none";
-            setStatus("Browser läuft: " + data.url);
+            setStatus("Browser laeuft");
+            setSessionState(true);
+            setButtons(false);
+            if (!document.body.classList.contains("sidebar-collapsed")) toggleSidebar();
         }, 5000);
-    } catch(e) { setStatus(e.message, true); }
+    } catch(e) {
+        setStatus(e.message, true);
+        setButtons(false);
+    }
 }
 
 async function stopSession() {
-    await api("/api/session/stop", "POST");
-    document.getElementById("browserFrame").src = "";
-    document.getElementById("browserFrame").style.display = "none";
-    document.getElementById("placeholder").style.display = "flex";
-    document.getElementById("placeholder").textContent = "Session beendet";
-    setStatus("Session gestoppt");
+    setButtons(true);
+    try {
+        await api("/api/session/stop", "POST");
+        document.getElementById("browserFrame").src = "";
+        document.getElementById("browserFrame").style.display = "none";
+        document.getElementById("placeholder").style.display = "flex";
+        document.getElementById("placeholder").textContent = "Session beendet";
+        setStatus("Session gestoppt");
+        setSessionState(false);
+    } catch(e) { setStatus(e.message, true); }
+    setButtons(false);
 }
 
-function logout() { localStorage.clear(); location.reload(); }
+async function logout() {
+    setStatus("Trenne Session...");
+    // Erst Session beenden falls eine läuft
+    if (!document.getElementById("btnStop").disabled) {
+        try {
+            await api("/api/session/stop", "POST");
+        } catch(e) { /* Session war evtl. schon weg, trotzdem ausloggen */ }
+    }
+    localStorage.clear();
+    location.reload();
+}
 </script>
 </body>
 </html>
