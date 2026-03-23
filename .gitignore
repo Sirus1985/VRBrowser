@@ -2,3 +2,4 @@ logs/
 certs/
 .env
 *.env
+browser.db
