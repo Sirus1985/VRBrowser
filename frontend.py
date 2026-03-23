@@ -86,7 +86,7 @@ def get_html() -> str:
         #status { margin-top:auto; font-size:12px; color:#888; border-top:1px solid var(--border); padding-top:10px; }
         label { display:flex; gap:8px; align-items:center; font-size:13px; }
         input[type=checkbox] { width:auto; }
-        .tabs { display:flex; gap:4px; }
+        .tabs { display:flex; gap:4px; flex-wrap:wrap; }
         .tab { flex:1; padding:7px; border-radius:6px; border:1px solid #555; background:#3a3d41; color:#ccc; cursor:pointer; font-size:13px; text-align:center; }
         .tab.active { background:var(--accent); border-color:var(--accent); color:#fff; }
         .tab-content { display:none; flex-direction:column; gap:8px; }
@@ -100,6 +100,35 @@ def get_html() -> str:
         .session-item .s-user { font-weight:600; color:#fff; font-size:13px; }
         .session-item .s-meta { color:#888; }
         .settings-hint { font-size:11px; color:#666; margin-top:-4px; }
+
+        /* Logging Tab */
+        .log-table { width:100%; border-collapse:collapse; font-size:13px; }
+        .log-table th { background:#333; color:#fff; padding:6px 10px; text-align:left; position:sticky; top:0; }
+        .log-table td { padding:6px 10px; border-bottom:1px solid #3a3a3a; }
+        .log-table tr:hover td { background:#2a2a2a; }
+        .log-table a { color:#7eb8f7; text-decoration:none; }
+        .log-table a:hover { text-decoration:underline; }
+        .log-filter-row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+        .log-filter-row input, .log-filter-row select { flex:1; min-width:80px; }
+        .log-filter-row button { width:auto; padding:7px 14px; }
+
+        /* Detail Modal */
+        #user-detail-modal {
+            display:none; position:fixed; inset:0;
+            background:rgba(0,0,0,0.75); z-index:9999; overflow-y:auto;
+        }
+        .modal-box {
+            background:#1e1e1e; color:#eee; margin:40px auto;
+            max-width:860px; border-radius:10px; padding:24px;
+            position:relative; border:1px solid #444;
+        }
+        .modal-close {
+            position:absolute; top:12px; right:16px;
+            background:none; border:none; color:#aaa;
+            font-size:1.4rem; cursor:pointer; width:auto; padding:0;
+        }
+        .modal-close:hover { color:#fff; }
+        #detail-total { margin-top:10px; font-weight:bold; text-align:right; font-size:13px; color:#aaa; }
     </style>
 </head>
 <body>
@@ -139,7 +168,10 @@ def get_html() -> str:
                 <div class="tab active" onclick="switchTab('users')">Benutzer</div>
                 <div class="tab" id="teamsTabBtn" onclick="switchTab('teams')">Teams</div>
                 <div class="tab" id="sessionsTabBtn" onclick="switchTab('sessions')">Sessions</div>
+                <div class="tab" id="loggingTabBtn" onclick="switchTab('logging')">&#128202; Log</div>
             </div>
+
+            <!-- TAB: Benutzer -->
             <div id="tab-users" class="tab-content active section" style="margin-top:6px">
                 <h4>Benutzer</h4>
                 <div class="filter-row">
@@ -158,6 +190,8 @@ def get_html() -> str:
                 <label id="newIsAdminLabel"><input id="newIsAdmin" type="checkbox"> Superadmin</label>
                 <button class="secondary" onclick="addUser()">+ User anlegen</button>
             </div>
+
+            <!-- TAB: Teams -->
             <div id="tab-teams" class="tab-content section" style="margin-top:6px">
                 <h4>Teams</h4>
                 <div id="teamList"></div>
@@ -177,15 +211,65 @@ def get_html() -> str:
                 </div>
                 <button class="secondary" onclick="assignTeamAdmin()">+ Als Team-Admin setzen</button>
             </div>
+
+            <!-- TAB: Aktive Sessions -->
             <div id="tab-sessions" class="tab-content section" style="margin-top:6px">
                 <h4>Aktive Sessions</h4>
                 <button class="secondary" onclick="loadSessions()">&#8635; Aktualisieren</button>
                 <div id="sessionList"><div style="color:#666;font-size:13px">Lade...</div></div>
             </div>
+
+            <!-- TAB: Logging / Nutzungsanalyse (nur Superadmin) -->
+            <div id="tab-logging" class="tab-content section" style="margin-top:6px">
+                <h4>&#128202; Nutzungsrangliste</h4>
+
+                <!-- Filter-Zeile Rangliste -->
+                <div class="log-filter-row">
+                    <select id="log-period" onchange="onLogPeriodChange()">
+                        <option value="all">Gesamt</option>
+                        <option value="day">Tag</option>
+                        <option value="week">Woche</option>
+                        <option value="month">Monat</option>
+                        <option value="year">Jahr</option>
+                    </select>
+                    <input id="log-year"  type="number" placeholder="Jahr" style="display:none" onchange="loadRanking()">
+                    <input id="log-month" type="number" placeholder="Monat 1-12" style="display:none" min="1" max="12" onchange="loadRanking()">
+                    <input id="log-week"  type="number" placeholder="KW 1-53"    style="display:none" min="1" max="53" onchange="loadRanking()">
+                    <input id="log-day"   type="date"                            style="display:none" onchange="loadRanking()">
+                    <button onclick="loadRanking()" style="width:auto;padding:7px 12px;">&#8635;</button>
+                </div>
+
+                <div id="ranking-wrap" style="overflow-x:auto">
+                    <table class="log-table">
+                        <thead>
+                            <tr>
+                                <th style="width:32px">#</th>
+                                <th>Nutzer</th>
+                                <th style="text-align:right">Sitzungen</th>
+                                <th style="text-align:right">Gesamtzeit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ranking-body">
+                            <tr><td colspan="4" style="color:#666;padding:12px">Noch nicht geladen.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <hr>
+                <h4>&#128269; Container &#8594; Nutzer</h4>
+                <div class="log-filter-row">
+                    <input id="container-search-input" type="text" placeholder="Container-Name z.B. vbrowser-a1b2c3d4">
+                    <button onclick="searchContainer()" style="width:auto;padding:7px 12px;">Suchen</button>
+                </div>
+                <div id="container-result"></div>
+            </div>
+            <!-- ENDE TAB Logging -->
+
         </div>
     </div>
     <div id="status">Bereit</div>
 </div>
+
 
 <div id="content">
     <button id="sidebarToggle" onclick="toggleSidebar()" title="Sidebar ein-/ausblenden (Ctrl+B)">&#9664;</button>
@@ -205,7 +289,47 @@ def get_html() -> str:
             &#9654; Session starten
         </button>
     </div>
+
+    <!-- Nutzer-Detail Modal -->
+    <div id="user-detail-modal">
+        <div class="modal-box">
+            <button class="modal-close" onclick="closeUserDetail()">&#10005;</button>
+            <h3 id="detail-title" style="margin-bottom:12px">Sitzungsdetails</h3>
+
+            <!-- Filter im Modal -->
+            <div class="log-filter-row" style="margin-bottom:10px">
+                <select id="detail-period" onchange="onDetailPeriodChange()">
+                    <option value="all">Gesamt</option>
+                    <option value="day">Tag</option>
+                    <option value="week">Woche</option>
+                    <option value="month">Monat</option>
+                    <option value="year">Jahr</option>
+                </select>
+                <input id="detail-year"  type="number" placeholder="Jahr" style="display:none" onchange="loadUserDetail()">
+                <input id="detail-month" type="number" placeholder="Monat" min="1" max="12" style="display:none" onchange="loadUserDetail()">
+                <input id="detail-week"  type="number" placeholder="KW" min="1" max="53" style="display:none" onchange="loadUserDetail()">
+                <input id="detail-day"   type="date" style="display:none" onchange="loadUserDetail()">
+            </div>
+
+            <div style="overflow-x:auto">
+                <table class="log-table">
+                    <thead>
+                        <tr>
+                            <th>Start</th>
+                            <th>Ende</th>
+                            <th style="text-align:right">Dauer</th>
+                            <th>Container</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detail-body"></tbody>
+                </table>
+            </div>
+            <div id="detail-total"></div>
+        </div>
+    </div>
+
 </div>
+
 
 <script>
 let token = localStorage.getItem("token");
@@ -307,6 +431,7 @@ function showSessionUI() {
         document.getElementById("adminPanel").classList.remove("hidden");
         document.getElementById("teamsTabBtn").classList.toggle("hidden", !isAdmin);
         document.getElementById("sessionsTabBtn").classList.toggle("hidden", !isAdmin);
+        document.getElementById("loggingTabBtn").classList.toggle("hidden", !isAdmin);
         document.getElementById("newIsAdminLabel").classList.toggle("hidden", !isAdmin);
     }
     loadSettings();
@@ -472,13 +597,15 @@ async function restartSessionFromOverlay() {
 function switchTab(tab) {
     document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
     document.querySelectorAll(".tab").forEach(el => el.classList.remove("active"));
-    document.getElementById("tab-"+tab).classList.add("active");
-    const tabBtns = document.querySelectorAll(".tab");
-    const tabIndex = ["users","teams","sessions"].indexOf(tab);
-    if (tabBtns[tabIndex]) tabBtns[tabIndex].classList.add("active");
-    if (tab === "users") loadUsers();
-    if (tab === "teams") loadTeams();
+    document.getElementById("tab-" + tab).classList.add("active");
+    const tabNames = ["users", "teams", "sessions", "logging"];
+    const tabBtns  = document.querySelectorAll(".tab");
+    const idx = tabNames.indexOf(tab);
+    if (tabBtns[idx]) tabBtns[idx].classList.add("active");
+    if (tab === "users")    loadUsers();
+    if (tab === "teams")    loadTeams();
     if (tab === "sessions") loadSessions();
+    if (tab === "logging")  loadRanking();
 }
 
 function toggleAdmin() {
@@ -515,7 +642,7 @@ async function loadUsers() {
 }
 
 function renderUsers() {
-    const filterName = document.getElementById("filterUsername").value.toLowerCase();
+    const filterName   = document.getElementById("filterUsername").value.toLowerCase();
     const filterTeamId = document.getElementById("filterTeam").value;
     const filtered = allUsers.filter(u => {
         const matchName = u.username.toLowerCase().includes(filterName);
@@ -526,7 +653,7 @@ function renderUsers() {
     document.getElementById("userList").innerHTML = filtered.length === 0
         ? "<div style='color:#666;font-size:13px'>Keine Treffer</div>"
         : filtered.map(u => {
-            const teamName = allTeams.find(t => t.id === u.team_id)?.name || "";
+            const teamName   = allTeams.find(t => t.id === u.team_id)?.name || "";
             const adminTeams = teamAdminMap[u.id] || [];
             return `<div class="item">
                 <div class="item-left">
@@ -548,8 +675,8 @@ function renderUsers() {
 async function addUser() {
     const username = document.getElementById("newUsername").value.trim();
     const password = document.getElementById("newPassword").value.trim();
-    const team_id = document.getElementById("newTeam").value || null;
-    const isadmin = document.getElementById("newIsAdmin")?.checked || false;
+    const team_id  = document.getElementById("newTeam").value || null;
+    const isadmin  = document.getElementById("newIsAdmin")?.checked || false;
     if (!username || !password) return setStatus("Bitte Benutzername und Passwort eingeben", true);
     try {
         await api("/api/users", "POST", { username, password, isadmin, team_id: team_id ? parseInt(team_id) : null });
@@ -583,7 +710,7 @@ async function loadTeams() {
         taTeam.innerHTML = "";
         teams.forEach(t => taTeam.innerHTML += `<option value="${t.id}">${t.name}</option>`);
         taTeam._allOptions = Array.from(taTeam.options).map(o => ({v:o.value, t:o.text}));
-        const allU = await api("/api/users");
+        const allU   = await api("/api/users");
         const taUser = document.getElementById("taUser");
         taUser.innerHTML = "";
         allU.filter(u => !u.isadmin).forEach(u => taUser.innerHTML += `<option value="${u.id}">${u.username}</option>`);
@@ -592,7 +719,7 @@ async function loadTeams() {
 }
 
 function filterSelect(selectId, searchId) {
-    const sel = document.getElementById(selectId);
+    const sel   = document.getElementById(selectId);
     const query = document.getElementById(searchId).value.toLowerCase();
     if (!sel._allOptions) return;
     sel.innerHTML = "";
@@ -643,7 +770,7 @@ async function loadSessions() {
             return;
         }
         document.getElementById("sessionList").innerHTML = sessions.map(s => {
-            const since = new Date(s.created_at * 1000).toLocaleString('de-DE');
+            const since    = new Date(s.created_at * 1000).toLocaleString('de-DE');
             const lastSeen = new Date(s.last_seen * 1000).toLocaleTimeString('de-DE');
             return `<div class="session-item">
                 <div class="s-user">&#128100; ${s.username} <span class="badge active">&#9679; aktiv</span></div>
@@ -654,6 +781,155 @@ async function loadSessions() {
         }).join("");
     } catch(e) { setStatus(e.message, true); }
 }
+
+
+// ══════════════════════════════════════════════════════════════════
+// LOGGING / NUTZUNGSANALYSE
+// ══════════════════════════════════════════════════════════════════
+
+function fmtDuration(sec) {
+    sec = Math.round(sec || 0);
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+}
+
+function fmtTs(ts) {
+    return new Date(ts * 1000).toLocaleString("de-DE");
+}
+
+function buildLogParams(prefix) {
+    const period = document.getElementById(prefix + "period").value;
+    const p = new URLSearchParams({ period });
+    if (period === "day")   { p.set("day",   document.getElementById(prefix + "day").value); }
+    if (period === "week")  { p.set("year",  document.getElementById(prefix + "year").value);
+                              p.set("week",  document.getElementById(prefix + "week").value); }
+    if (period === "month") { p.set("year",  document.getElementById(prefix + "year").value);
+                              p.set("month", document.getElementById(prefix + "month").value); }
+    if (period === "year")  { p.set("year",  document.getElementById(prefix + "year").value); }
+    return p;
+}
+
+function showPeriodFields(prefix) {
+    const period = document.getElementById(prefix + "period").value;
+    document.getElementById(prefix + "year").style.display  = ["week","month","year"].includes(period) ? "" : "none";
+    document.getElementById(prefix + "month").style.display = period === "month" ? "" : "none";
+    document.getElementById(prefix + "week").style.display  = period === "week"  ? "" : "none";
+    document.getElementById(prefix + "day").style.display   = period === "day"   ? "" : "none";
+}
+
+function onLogPeriodChange()    { showPeriodFields("log-");    loadRanking(); }
+function onDetailPeriodChange() { showPeriodFields("detail-"); loadUserDetail(); }
+
+async function loadRanking() {
+    const params = buildLogParams("log-");
+    const tbody  = document.getElementById("ranking-body");
+    tbody.innerHTML = "<tr><td colspan='4' style='color:#666;padding:10px'>Lade...</td></tr>";
+    try {
+        const data = await api("/api/admin/logging/ranking?" + params);
+        if (!data.length) {
+            tbody.innerHTML = "<tr><td colspan='4' style='color:#666;padding:10px'>Keine Daten fuer diesen Zeitraum.</td></tr>";
+            return;
+        }
+        tbody.innerHTML = data.map((row, i) => `
+            <tr>
+                <td>${i + 1}</td>
+                <td><a href="#" onclick="openUserDetail(${row.user_id},'${row.username}');return false">${row.username}</a></td>
+                <td style="text-align:right">${row.session_count}</td>
+                <td style="text-align:right">${fmtDuration(row.total_seconds)}</td>
+            </tr>`).join("");
+    } catch(e) {
+        tbody.innerHTML = `<tr><td colspan='4' style='color:#f66;padding:10px'>${e.message}</td></tr>`;
+    }
+}
+
+// ── Nutzer-Detail Modal ─────────────────────────────────────────
+let _detailUserId   = null;
+let _detailUsername = "";
+
+async function openUserDetail(userId, username) {
+    _detailUserId   = userId;
+    _detailUsername = username;
+    document.getElementById("detail-title").textContent = `Sitzungen: ${username}`;
+    document.getElementById("detail-period").value = "all";
+    showPeriodFields("detail-");
+    document.getElementById("user-detail-modal").style.display = "block";
+    await loadUserDetail();
+}
+
+function closeUserDetail() {
+    document.getElementById("user-detail-modal").style.display = "none";
+}
+
+// Klick auf Modal-Hintergrund schliesst Modal
+document.getElementById("user-detail-modal").addEventListener("click", function(e) {
+    if (e.target === this) closeUserDetail();
+});
+
+async function loadUserDetail() {
+    if (!_detailUserId) return;
+    const params = buildLogParams("detail-");
+    const tbody  = document.getElementById("detail-body");
+    tbody.innerHTML = "<tr><td colspan='4' style='color:#666;padding:10px'>Lade...</td></tr>";
+    document.getElementById("detail-total").textContent = "";
+    try {
+        const data = await api(`/api/admin/logging/user/${_detailUserId}?` + params);
+        if (!data.length) {
+            tbody.innerHTML = "<tr><td colspan='4' style='color:#666;padding:10px'>Keine Sitzungen gefunden.</td></tr>";
+            return;
+        }
+        let totalSec = 0;
+        tbody.innerHTML = data.map(row => {
+            totalSec += row.duration || 0;
+            return `<tr>
+                <td>${fmtTs(row.started_at)}</td>
+                <td>${fmtTs(row.ended_at)}</td>
+                <td style="text-align:right">${fmtDuration(row.duration)}</td>
+                <td style="font-family:monospace;font-size:12px">${row.container_name}</td>
+            </tr>`;
+        }).join("");
+        document.getElementById("detail-total").textContent =
+            `Gesamt: ${data.length} Sitzung(en) \u00b7 ${fmtDuration(totalSec)}`;
+    } catch(e) {
+        tbody.innerHTML = `<tr><td colspan='4' style='color:#f66;padding:10px'>${e.message}</td></tr>`;
+    }
+}
+
+// ── Container-Suche ─────────────────────────────────────────────
+async function searchContainer() {
+    const name = document.getElementById("container-search-input").value.trim();
+    const div  = document.getElementById("container-result");
+    if (!name) { div.innerHTML = "<span style='color:#888;font-size:13px'>Bitte Container-Namen eingeben.</span>"; return; }
+    div.innerHTML = "<span style='color:#666;font-size:13px'>Suche...</span>";
+    try {
+        const data = await api(`/api/admin/logging/container/${encodeURIComponent(name)}`);
+        if (!data.length) {
+            div.innerHTML = `<span style='color:#888;font-size:13px'>Kein Nutzer fuer <code>${name}</code> gefunden.</span>`;
+            return;
+        }
+        div.innerHTML = `<table class="log-table" style="margin-top:6px">
+            <thead><tr><th>Nutzer</th><th style="text-align:right">Sitzungen</th><th style="text-align:right">Gesamtzeit</th></tr></thead>
+            <tbody>${data.map(r => `
+                <tr>
+                    <td><a href="#" onclick="openUserDetail(${r.user_id},'${r.username}');return false">${r.username}</a></td>
+                    <td style="text-align:right">${r.session_count}</td>
+                    <td style="text-align:right">${fmtDuration(r.total_seconds)}</td>
+                </tr>`).join("")}
+            </tbody>
+        </table>`;
+    } catch(e) {
+        div.innerHTML = `<span style='color:#f66;font-size:13px'>${e.message}</span>`;
+    }
+}
+
+// Container-Suche mit Enter-Taste
+document.getElementById("container-search-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") searchContainer();
+});
+
 </script>
 </body>
 </html>

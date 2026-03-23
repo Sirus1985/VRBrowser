@@ -33,11 +33,10 @@ def initdb():
         )
     """)
 
-    # Migrationen: neue Spalten bei bestehenden DBs ergänzen
     for col in [
         "ALTER TABLE users ADD COLUMN isadmin INTEGER DEFAULT 0",
         "ALTER TABLE users ADD COLUMN team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL",
-        "ALTER TABLE users ADD COLUMN auto_start_session INTEGER DEFAULT 0",  # NEU
+        "ALTER TABLE users ADD COLUMN auto_start_session INTEGER DEFAULT 0",
     ]:
         try:
             cur.execute(col)
@@ -63,6 +62,21 @@ def initdb():
             created_at REAL NOT NULL
         )
     """)
+
+    # NEU: Historischer Session-Log
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS session_log (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            username       TEXT NOT NULL,
+            container_name TEXT NOT NULL,
+            started_at     REAL NOT NULL,
+            ended_at       REAL NOT NULL,
+            duration       REAL NOT NULL
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_log_user    ON session_log(user_id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_log_started ON session_log(started_at)")
 
     cur.execute(
         "INSERT OR IGNORE INTO users (username, password, isadmin) VALUES (?, ?, ?)",
@@ -127,7 +141,6 @@ def db_delete_user(userid: int):
 
 
 def db_update_user_settings(user_id: int, auto_start_session: bool):
-    """Speichert Nutzer-Einstellungen."""
     with get_conn() as conn:
         conn.execute(
             "UPDATE users SET auto_start_session=? WHERE id=?",
@@ -137,7 +150,6 @@ def db_update_user_settings(user_id: int, auto_start_session: bool):
 
 
 def db_get_user_settings(user_id: int) -> dict:
-    """Gibt Nutzer-Einstellungen zurück."""
     with get_conn() as conn:
         row = conn.execute(
             "SELECT auto_start_session FROM users WHERE id=?", (user_id,)
@@ -243,10 +255,29 @@ def db_update_heartbeat(session_id: str):
         conn.commit()
 
 
-def db_delete_session(session_id: str):
+def db_close_session(session_id: str):
+    """Archiviert eine Sitzung in session_log und löscht sie aus der aktiven Tabelle."""
     with get_conn() as conn:
-        conn.execute("DELETE FROM sessions WHERE session_id=?", (session_id,))
-        conn.commit()
+        row = conn.execute(
+            "SELECT user_id, username, container_name, created_at, last_seen FROM sessions WHERE session_id=?",
+            (session_id,)
+        ).fetchone()
+        if row:
+            ended_at = time.time()
+            duration = ended_at - row["created_at"]
+            conn.execute(
+                """INSERT INTO session_log (user_id, username, container_name, started_at, ended_at, duration)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (row["user_id"], row["username"], row["container_name"],
+                 row["created_at"], ended_at, duration)
+            )
+            conn.execute("DELETE FROM sessions WHERE session_id=?", (session_id,))
+            conn.commit()
+
+
+# Alias: altes db_delete_session wird durch db_close_session ersetzt
+def db_delete_session(session_id: str):
+    db_close_session(session_id)
 
 
 def db_list_sessions():
@@ -281,3 +312,89 @@ def db_get_timed_out_sessions(timeout: float):
         ).fetchall()
         return [dict(r) for r in rows]
 
+
+# ---- Session Log / Nutzungsanalyse ----
+
+def _build_time_filter(period: str, year=None, month=None, week=None, day=None):
+    """Baut WHERE-Klausel + Params für Zeitfilter."""
+    conditions = []
+    params = []
+
+    if period == "day" and day:
+        # day = "YYYY-MM-DD"
+        import datetime
+        dt = datetime.datetime.strptime(day, "%Y-%m-%d")
+        ts_start = dt.timestamp()
+        ts_end   = (dt + datetime.timedelta(days=1)).timestamp()
+        conditions.append("started_at >= ? AND started_at < ?")
+        params += [ts_start, ts_end]
+
+    elif period == "week" and year and week:
+        import datetime
+        dt_start = datetime.datetime.fromisocalendar(int(year), int(week), 1)
+        dt_end   = dt_start + datetime.timedelta(weeks=1)
+        conditions.append("started_at >= ? AND started_at < ?")
+        params += [dt_start.timestamp(), dt_end.timestamp()]
+
+    elif period == "month" and year and month:
+        import datetime, calendar
+        dt_start = datetime.datetime(int(year), int(month), 1)
+        last_day = calendar.monthrange(int(year), int(month))[1]
+        dt_end   = datetime.datetime(int(year), int(month), last_day, 23, 59, 59)
+        conditions.append("started_at >= ? AND started_at < ?")
+        params += [dt_start.timestamp(), dt_end.timestamp() + 1]
+
+    elif period == "year" and year:
+        import datetime
+        dt_start = datetime.datetime(int(year), 1, 1)
+        dt_end   = datetime.datetime(int(year) + 1, 1, 1)
+        conditions.append("started_at >= ? AND started_at < ?")
+        params += [dt_start.timestamp(), dt_end.timestamp()]
+
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    return where, params
+
+
+def db_usage_ranking(period="all", year=None, month=None, week=None, day=None):
+    """Rangliste aller Nutzer nach Gesamtnutzungszeit."""
+    where, params = _build_time_filter(period, year, month, week, day)
+    with get_conn() as conn:
+        rows = conn.execute(f"""
+            SELECT username, user_id,
+                   COUNT(*) as session_count,
+                   SUM(duration) as total_seconds
+            FROM session_log
+            {where}
+            GROUP BY user_id
+            ORDER BY total_seconds DESC
+        """, params).fetchall()
+    return [dict(r) for r in rows]
+
+
+def db_user_session_log(user_id: int, period="all", year=None, month=None, week=None, day=None):
+    """Alle archivierten Sitzungen eines Nutzers."""
+    where, params = _build_time_filter(period, year, month, week, day)
+    and_clause = where.replace("WHERE", "AND") if where else ""
+    with get_conn() as conn:
+        rows = conn.execute(f"""
+            SELECT id, container_name, started_at, ended_at, duration
+            FROM session_log
+            WHERE user_id=? {and_clause}
+            ORDER BY started_at DESC
+        """, [user_id] + params).fetchall()
+    return [dict(r) for r in rows]
+
+
+def db_find_user_by_container(container_name: str):
+    """Rückwärtssuche: Welche Nutzer haben diesen Container genutzt?"""
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT DISTINCT sl.username, sl.user_id,
+                   COUNT(*) as session_count,
+                   SUM(sl.duration) as total_seconds
+            FROM session_log sl
+            WHERE sl.container_name = ?
+            GROUP BY sl.user_id
+            ORDER BY sl.username
+        """, (container_name,)).fetchall()
+    return [dict(r) for r in rows]
