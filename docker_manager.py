@@ -76,6 +76,14 @@ class DockerManager:
         except Exception as e:
             logger.warning(f"Could not remove container {container_name}: {e}")
 
+    def is_container_running(self, container_name: str) -> bool:
+        try:
+            c = self.client.containers.get(container_name)
+            return c.status == "running"
+        except Exception:
+            return False
+
+
     def create_container(self, userid: int, username: str, container_name: str, host_id: str) -> str:
         self.stop_container(container_name)
         profile_path = self.get_profile_path(username)

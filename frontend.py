@@ -104,7 +104,6 @@ def get_html() -> str:
 </head>
 <body>
 <div id="sidebar">
-    <!-- Titelzeile mit Logout oben rechts -->
     <div style="display:flex; justify-content:space-between; align-items:center;">
         <h3 style="margin:0;">VBrowser</h3>
         <button class="secondary hidden" id="logoutBtn" onclick="logout()"
@@ -192,15 +191,33 @@ def get_html() -> str:
     <button id="sidebarToggle" onclick="toggleSidebar()" title="Sidebar ein-/ausblenden (Ctrl+B)">&#9664;</button>
     <div id="placeholder">Bitte einloggen...</div>
     <iframe id="browserFrame"></iframe>
+
+    <!-- Session-Expired Overlay -->
+    <div id="sessionOverlay" style="display:none; position:absolute; inset:0;
+         background:rgba(0,0,0,0.82); color:white; flex-direction:column;
+         align-items:center; justify-content:center; z-index:50; gap:14px;">
+        <div style="font-size:32px">&#9888;&#65039;</div>
+        <div id="overlayMessage" style="font-size:15px; color:#ccc; text-align:center; max-width:300px;">
+            Deine Session ist nicht mehr aktiv.
+        </div>
+        <button class="green" id="overlayStartBtn" onclick="restartSessionFromOverlay()"
+                style="width:200px; margin-top:8px;">
+            &#9654; Session starten
+        </button>
+    </div>
 </div>
 
 <script>
 let token = localStorage.getItem("token");
 let currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
 let allUsers = [], allTeams = [], teamAdminMap = {};
+let currentSessionId = null;
+let healthCheckInterval = null;
+
 if (token && currentUser) showSessionUI();
 
-// ── Sidebar Toggle ──
+
+// ── Sidebar Toggle ──────────────────────────────────────────────
 function toggleSidebar() {
     const collapsed = document.body.classList.toggle("sidebar-collapsed");
     document.getElementById("sidebarToggle").innerHTML = collapsed ? "&#9654;" : "&#9664;";
@@ -214,7 +231,8 @@ document.addEventListener("keydown", e => {
     if (e.ctrlKey && e.key === "b") { e.preventDefault(); toggleSidebar(); }
 });
 
-// ── Session State ──
+
+// ── Session State ───────────────────────────────────────────────
 function setSessionState(running) {
     document.getElementById("btnStart").disabled = running;
     document.getElementById("btnStop").disabled = !running;
@@ -228,13 +246,11 @@ function setStatus(msg, isError=false) {
 
 function setButtons(disabled) {
     document.querySelectorAll("button").forEach(b => {
-        // Session-Buttons und kleine Buttons nicht pauschal anfassen
         if (!b.classList.contains("small") && b.id !== "btnStart" && b.id !== "btnStop") {
             b.disabled = disabled;
         }
     });
 }
-
 
 async function api(path, method="GET", body=null) {
     const opts = { method, headers: { "Authorization": `Bearer ${token}` } };
@@ -244,7 +260,8 @@ async function api(path, method="GET", body=null) {
     return res.json();
 }
 
-// ── Enter-Taste im Login ──
+
+// ── Enter-Taste im Login ────────────────────────────────────────
 document.getElementById("username").addEventListener("keydown", e => {
     if (e.key === "Enter") document.getElementById("password").focus();
 });
@@ -252,6 +269,8 @@ document.getElementById("password").addEventListener("keydown", e => {
     if (e.key === "Enter") doLogin();
 });
 
+
+// ── Login ───────────────────────────────────────────────────────
 async function doLogin() {
     setButtons(true);
     const u = document.getElementById("username").value;
@@ -320,10 +339,136 @@ async function resetProfile() {
         document.getElementById("placeholder").textContent = "Profil zurueckgesetzt. Neue Session starten.";
         setStatus("Profil zurueckgesetzt");
         setSessionState(false);
+        stopHealthPolling();
+        currentSessionId = null;
     } catch(e) { setStatus(e.message, true); }
     setButtons(false);
 }
 
+
+// ── Session Start / Stop ────────────────────────────────────────
+async function startSession() {
+    setButtons(true);
+    setStatus("Starte Container...");
+    try {
+        const data = await api("/api/session/start", "POST");
+        currentSessionId = data.session_id ?? "active";
+        setStatus("Lade Browser...");
+        const cookieFrame = document.createElement("iframe");
+        cookieFrame.style.display = "none";
+        const browserHost = new URL(data.url).host;
+        cookieFrame.src = `https://${browserHost}/auth/set-cookie`
+            + `?token=${encodeURIComponent(data.token)}`
+            + `&redirect=${encodeURIComponent(data.url)}`;
+        document.body.appendChild(cookieFrame);
+        setTimeout(() => {
+            document.body.removeChild(cookieFrame);
+            const frame = document.getElementById("browserFrame");
+            frame.src = data.url;
+            frame.style.display = "block";
+            document.getElementById("placeholder").style.display = "none";
+            document.getElementById("sessionOverlay").style.display = "none";
+            setStatus("Browser laeuft");
+            setSessionState(true);
+            setButtons(false);
+            startHealthPolling();
+            if (!document.body.classList.contains("sidebar-collapsed")) toggleSidebar();
+        }, 5000);
+    } catch(e) {
+        setStatus(e.message, true);
+        setButtons(false);
+    }
+}
+
+async function stopSession() {
+    stopHealthPolling();
+    currentSessionId = null;
+    setButtons(true);
+    try {
+        await api("/api/session/stop", "POST");
+        document.getElementById("browserFrame").src = "";
+        document.getElementById("browserFrame").style.display = "none";
+        document.getElementById("sessionOverlay").style.display = "none";
+        document.getElementById("placeholder").style.display = "flex";
+        document.getElementById("placeholder").textContent = "Session beendet";
+        setStatus("Session gestoppt");
+        setSessionState(false);
+    } catch(e) { setStatus(e.message, true); }
+    setButtons(false);
+}
+
+async function logout() {
+    stopHealthPolling();
+    currentSessionId = null;
+    setStatus("Trenne Session...");
+    if (!document.getElementById("btnStop").disabled) {
+        try { await api("/api/session/stop", "POST"); } catch(e) {}
+    }
+    localStorage.clear();
+    location.reload();
+}
+
+
+// ── Session Health Check ────────────────────────────────────────
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && currentSessionId) {
+        pollSessionHealth();
+        startHealthPolling();
+    } else {
+        stopHealthPolling();
+    }
+});
+
+function startHealthPolling() {
+    stopHealthPolling();
+    healthCheckInterval = setInterval(pollSessionHealth, 30000);
+}
+
+function stopHealthPolling() {
+    if (healthCheckInterval) {
+        clearInterval(healthCheckInterval);
+        healthCheckInterval = null;
+    }
+}
+
+async function pollSessionHealth() {
+    if (!currentSessionId) return;
+    try {
+        const res = await fetch("/api/session/status", {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (!res.ok) { showSessionOverlay("Session nicht mehr erreichbar."); return; }
+        const data = await res.json();
+        if (!data.running) showSessionOverlay("Deine Session ist abgelaufen oder wurde beendet.");
+    } catch {
+        showSessionOverlay("Verbindung zum Server verloren.");
+    }
+}
+
+function showSessionOverlay(msg) {
+    stopHealthPolling();
+    currentSessionId = null;
+    document.getElementById("browserFrame").style.display = "none";
+    document.getElementById("overlayMessage").textContent = msg;
+    const btn = document.getElementById("overlayStartBtn");
+    btn.disabled = false;
+    btn.textContent = "&#9654; Session starten";
+    document.getElementById("sessionOverlay").style.display = "flex";
+    setSessionState(false);
+    setStatus("Session inaktiv", true);
+    if (document.body.classList.contains("sidebar-collapsed")) toggleSidebar();
+}
+
+async function restartSessionFromOverlay() {
+    const btn = document.getElementById("overlayStartBtn");
+    btn.disabled = true;
+    btn.textContent = "&#9203; Starte...";
+    document.getElementById("sessionOverlay").style.display = "none";
+    await startSession();
+}
+
+
+// ── Admin Bereich ───────────────────────────────────────────────
 function switchTab(tab) {
     document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
     document.querySelectorAll(".tab").forEach(el => el.classList.remove("active"));
@@ -508,62 +653,6 @@ async function loadSessions() {
             </div>`;
         }).join("");
     } catch(e) { setStatus(e.message, true); }
-}
-
-async function startSession() {
-    setButtons(true);
-    setStatus("Starte Container...");
-    try {
-        const data = await api("/api/session/start", "POST");
-        setStatus("Lade Browser...");
-        const cookieFrame = document.createElement("iframe");
-        cookieFrame.style.display = "none";
-        const browserHost = new URL(data.url).host;
-        cookieFrame.src = `https://${browserHost}/auth/set-cookie`
-            + `?token=${encodeURIComponent(data.token)}`
-            + `&redirect=${encodeURIComponent(data.url)}`;
-        document.body.appendChild(cookieFrame);
-        setTimeout(() => {
-            document.body.removeChild(cookieFrame);
-            const frame = document.getElementById("browserFrame");
-            frame.src = data.url;
-            frame.style.display = "block";
-            document.getElementById("placeholder").style.display = "none";
-            setStatus("Browser laeuft");
-            setSessionState(true);
-            setButtons(false);
-            if (!document.body.classList.contains("sidebar-collapsed")) toggleSidebar();
-        }, 5000);
-    } catch(e) {
-        setStatus(e.message, true);
-        setButtons(false);
-    }
-}
-
-async function stopSession() {
-    setButtons(true);
-    try {
-        await api("/api/session/stop", "POST");
-        document.getElementById("browserFrame").src = "";
-        document.getElementById("browserFrame").style.display = "none";
-        document.getElementById("placeholder").style.display = "flex";
-        document.getElementById("placeholder").textContent = "Session beendet";
-        setStatus("Session gestoppt");
-        setSessionState(false);
-    } catch(e) { setStatus(e.message, true); }
-    setButtons(false);
-}
-
-async function logout() {
-    setStatus("Trenne Session...");
-    // Erst Session beenden falls eine läuft
-    if (!document.getElementById("btnStop").disabled) {
-        try {
-            await api("/api/session/stop", "POST");
-        } catch(e) { /* Session war evtl. schon weg, trotzdem ausloggen */ }
-    }
-    localStorage.clear();
-    location.reload();
 }
 </script>
 </body>

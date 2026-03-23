@@ -69,6 +69,19 @@ def stop_session(user: dict = Depends(get_current_user)):
     response.delete_cookie("vbrowser_token", domain=f".{BASE_DOMAIN}")
     return response
 
+@router.get("/api/session/status")
+def session_status(user: dict = Depends(get_current_user)):
+    """Prüft ob der Container des eingeloggten Nutzers noch läuft."""
+    session = db_get_session_by_user(user["uid"])
+    if not session:
+        return {"running": False}
+    
+    try:
+        running = docker_manager.is_container_running(session["container_name"])
+        return {"running": running}
+    except Exception:
+        return {"running": False}
+
 
 @router.post("/api/session/reset")
 def reset_session(user: dict = Depends(get_current_user)):
