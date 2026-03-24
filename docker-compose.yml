@@ -2,8 +2,29 @@ networks:
   proxy:
     driver: bridge
     name: vbrowser_proxy
+    ipam:                        # ← Subnetz definieren für statische IPs
+      config:
+        - subnet: 172.20.0.0/24
+
 
 services:
+
+  adguard:
+    image: adguard/adguardhome:latest
+    container_name: adguard_home
+    ports:
+      - "3000:3000/tcp"
+      - "53:53/udp"
+      - "53:53/tcp"
+    volumes:
+      - ./adguard/conf:/opt/adguardhome/conf
+      - ./adguard/work:/opt/adguardhome/work
+    restart: unless-stopped
+    networks:
+      proxy:
+        ipv4_address: 172.20.0.2  # ← feste IP für AdGuard
+
+
   traefik:
     image: traefik:2.11
     container_name: vbrowser-traefik
@@ -17,13 +38,14 @@ services:
       - --entrypoints.web.address=:80
       - --providers.file.directory=/etc/traefik/dynamic
     ports:
-      - "80:80"          # nur HTTP, HTTPS macht ipv64-CDN
-      - "8888:8080"      # Dashboard
+      - "80:80"
+      - "8888:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik-dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
     networks:
       - proxy
+
 
   backend:
     build: .
@@ -31,33 +53,26 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-
+    dns:
+      - 172.20.0.2              # ← AdGuard-IP eintragen
     volumes:
       - ./backend.py:/app/backend.py
-      - ./main.py:/app/main.py          # ← NEU
-      - ./frontend.py:/app/frontend.py  # ← empfohlen, damit Änderungen sofort wirken
-      - ./database.py:/app/database.py  # ← NEU
-      - ./routes:/app/routes            # ← NEU (ganzer Ordner)
+      - ./main.py:/app/main.py
+      - ./frontend.py:/app/frontend.py
+      - ./database.py:/app/database.py
+      - ./routes:/app/routes
       - ./.data:/appdata
       - /var/run/docker.sock:/var/run/docker.sock
       - /opt/vbrowser/seccomp_profile.json:/opt/vbrowser/seccomp_profile.json:ro
-
-
-
     networks:
       - proxy
+    depends_on:
+      - adguard
     labels:
       - traefik.enable=true
-
-      # Haupt-Router (HTTP, extern aber über ipv64 schon HTTPS terminiert)
       - traefik.http.routers.vbrowser-backend.rule=Host(`vbrowser.de`)
       - traefik.http.routers.vbrowser-backend.entrypoints=web
       - traefik.http.services.vbrowser-backend.loadbalancer.server.port=8080
-
-      # HTTP → HTTPS Redirect brauchst du jetzt nicht mehr in Traefik,
-      # das macht das ipv64-CDN (Browser kommt ohnehin per https rein)
-
-      # Auth-Router (gleicher Service, andere Rule)
       - traefik.http.routers.vbrowser-auth.rule=HostRegexp(`{subdomain:[a-z0-9-]+}.vbrowser.de`) && Path(`/auth/set-cookie`)
       - traefik.http.routers.vbrowser-auth.entrypoints=web
       - traefik.http.routers.vbrowser-auth.service=vbrowser-backend
@@ -71,3 +86,7 @@ services:
     command: tunnel --no-autoupdate run
     environment:
       - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    networks:
+      - proxy
+    depends_on:
+      - adguard

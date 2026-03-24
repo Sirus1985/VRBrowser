@@ -8,7 +8,8 @@ from config import BASE_DOMAIN, PROXY_NETWORK, USE_TLS
 from session_manager import update_heartbeat, register_session, validate_token
 from database import (
     db_get_session_by_user, db_delete_session, db_list_sessions,
-    db_update_user_settings, db_get_user_settings
+    db_update_user_settings, db_get_user_settings,
+    db_search_session_log                                          # ← NEU
 )
 
 router = APIRouter(tags=["sessions"])
@@ -42,8 +43,10 @@ def start_session(user: dict = Depends(get_current_user)):
     host_id = session_id[:8]
     token = secrets.token_urlsafe(32)
 
-    url = docker_manager.create_container(user_id, username, container_name, host_id)
-    register_session(session_id, user_id, username, container_name, token)
+    url, container_ip = docker_manager.create_container(   # ← IP entgegennehmen
+        user_id, username, container_name, host_id
+    )
+    register_session(session_id, user_id, username, container_name, token, container_ip)  # ← IP weitergeben
 
     response = JSONResponse({
         "status": "started",
@@ -69,13 +72,12 @@ def stop_session(user: dict = Depends(get_current_user)):
     response.delete_cookie("vbrowser_token", domain=f".{BASE_DOMAIN}")
     return response
 
+
 @router.get("/api/session/status")
 def session_status(user: dict = Depends(get_current_user)):
-    """Prüft ob der Container des eingeloggten Nutzers noch läuft."""
     session = db_get_session_by_user(user["uid"])
     if not session:
         return {"running": False}
-    
     try:
         running = docker_manager.is_container_running(session["container_name"])
         return {"running": running}
@@ -85,19 +87,13 @@ def session_status(user: dict = Depends(get_current_user)):
 
 @router.post("/api/session/reset")
 def reset_session(user: dict = Depends(get_current_user)):
-    """Stoppt die laufende Session und löscht das Firefox-Profil des Nutzers."""
     username = user["sub"]
     user_id = user["uid"]
-
-    # Laufende Session stoppen
     session = db_get_session_by_user(user_id)
     if session:
         docker_manager.stop_container(session["container_name"])
         db_delete_session(session["session_id"])
-
-    # Firefox-Profil löschen
     docker_manager.reset_profile(username)
-
     response = JSONResponse({"status": "reset"})
     response.delete_cookie("vbrowser_token", domain=f".{BASE_DOMAIN}")
     return response
@@ -105,13 +101,11 @@ def reset_session(user: dict = Depends(get_current_user)):
 
 @router.get("/api/user/settings")
 def get_settings(user: dict = Depends(get_current_user)):
-    """Gibt die Einstellungen des eingeloggten Nutzers zurück."""
     return db_get_user_settings(user["uid"])
 
 
 @router.patch("/api/user/settings")
 def update_settings(body: dict, user: dict = Depends(get_current_user)):
-    """Aktualisiert die Einstellungen des eingeloggten Nutzers."""
     auto_start = bool(body.get("auto_start_session", False))
     db_update_user_settings(user["uid"], auto_start)
     return {"status": "ok", "auto_start_session": auto_start}
@@ -121,6 +115,40 @@ def update_settings(body: dict, user: dict = Depends(get_current_user)):
 def list_sessions(user: dict = Depends(require_admin)):
     return db_list_sessions()
 
+
+# ── Session-Log Suche ──────────────────────────────────────────────────────────
+
+@router.get("/api/session/log")
+def search_session_log(
+    q: str = None,               # Freitextsuche: username, container_name, IP
+    ip: str = None,              # gezielter IP-Filter
+    period: str = "all",
+    year: int = None,
+    month: int = None,
+    week: int = None,
+    day: str = None,             # Format: YYYY-MM-DD
+    user: dict = Depends(require_admin)
+):
+    """
+    Durchsucht den Session-Log.
+    - q:      Freitext (username, container_name oder IP)
+    - ip:     Exakte IP-Adresse
+    - period: all | day | week | month | year
+    - year, month, week, day: Zeitraum-Parameter (gleich wie Nutzungsrangliste)
+    """
+    results = db_search_session_log(
+        query=q,
+        container_ip=ip,
+        period=period,
+        year=year,
+        month=month,
+        week=week,
+        day=day
+    )
+    return results
+
+
+# ── Health / Auth / Heartbeat ──────────────────────────────────────────────────
 
 @router.get("/api/health")
 def health():

@@ -15,9 +15,8 @@ def update_heartbeat(session_id: str):
     db_update_heartbeat(session_id)
 
 
-def register_session(session_id: str, user_id: int, username: str, container_name: str, token: str):
-    db_create_session(session_id, user_id, username, container_name, token)
-
+def register_session(session_id: str, user_id: int, username: str, container_name: str, token: str, container_ip: str = None): 
+    db_create_session(session_id, user_id, username, container_name, token, container_ip)  
 
 def validate_token(token: str) -> bool:
     return db_get_session_by_token(token) is not None

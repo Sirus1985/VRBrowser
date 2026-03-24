@@ -57,26 +57,41 @@ def initdb():
             user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             username TEXT NOT NULL,
             container_name TEXT NOT NULL,
+            container_ip TEXT,
             token TEXT NOT NULL,
             last_seen REAL NOT NULL,
             created_at REAL NOT NULL
         )
     """)
 
-    # NEU: Historischer Session-Log
+    # Migration für bestehende sessions-Tabelle
+    try:
+        cur.execute("ALTER TABLE sessions ADD COLUMN container_ip TEXT")
+    except sqlite3.OperationalError:
+        pass
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS session_log (
             id             INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             username       TEXT NOT NULL,
             container_name TEXT NOT NULL,
+            container_ip   TEXT,
             started_at     REAL NOT NULL,
             ended_at       REAL NOT NULL,
             duration       REAL NOT NULL
         )
     """)
+
+    # Migration für bestehende session_log-Tabelle
+    try:
+        cur.execute("ALTER TABLE session_log ADD COLUMN container_ip TEXT")
+    except sqlite3.OperationalError:
+        pass
+
     cur.execute("CREATE INDEX IF NOT EXISTS idx_log_user    ON session_log(user_id)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_log_started ON session_log(started_at)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_log_ip      ON session_log(container_ip)")  # ← NEU
 
     cur.execute(
         "INSERT OR IGNORE INTO users (username, password, isadmin) VALUES (?, ?, ?)",
@@ -234,14 +249,15 @@ def db_get_team_admins(team_id: int):
 
 # ---- Sessions ----
 
-def db_create_session(session_id: str, user_id: int, username: str, container_name: str, token: str):
+def db_create_session(session_id: str, user_id: int, username: str,
+                      container_name: str, token: str, container_ip: str = None):
     now = time.time()
     with get_conn() as conn:
         conn.execute(
             """INSERT OR REPLACE INTO sessions
-               (session_id, user_id, username, container_name, token, last_seen, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (session_id, user_id, username, container_name, token, now, now),
+               (session_id, user_id, username, container_name, container_ip, token, last_seen, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (session_id, user_id, username, container_name, container_ip, token, now, now),
         )
         conn.commit()
 
@@ -259,16 +275,17 @@ def db_close_session(session_id: str):
     """Archiviert eine Sitzung in session_log und löscht sie aus der aktiven Tabelle."""
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT user_id, username, container_name, created_at, last_seen FROM sessions WHERE session_id=?",
+            "SELECT user_id, username, container_name, container_ip, created_at FROM sessions WHERE session_id=?",
             (session_id,)
         ).fetchone()
         if row:
             ended_at = time.time()
             duration = ended_at - row["created_at"]
             conn.execute(
-                """INSERT INTO session_log (user_id, username, container_name, started_at, ended_at, duration)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (row["user_id"], row["username"], row["container_name"],
+                """INSERT INTO session_log
+                   (user_id, username, container_name, container_ip, started_at, ended_at, duration)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (row["user_id"], row["username"], row["container_name"], row["container_ip"],
                  row["created_at"], ended_at, duration)
             )
             conn.execute("DELETE FROM sessions WHERE session_id=?", (session_id,))
@@ -283,8 +300,8 @@ def db_delete_session(session_id: str):
 def db_list_sessions():
     with get_conn() as conn:
         rows = conn.execute(
-            """SELECT s.session_id, s.username, s.container_name, s.last_seen, s.created_at,
-                      u.team_id
+            """SELECT s.session_id, s.username, s.container_name, s.container_ip,
+                      s.last_seen, s.created_at, u.team_id
                FROM sessions s
                JOIN users u ON s.user_id = u.id
                ORDER BY s.created_at DESC"""
@@ -321,7 +338,6 @@ def _build_time_filter(period: str, year=None, month=None, week=None, day=None):
     params = []
 
     if period == "day" and day:
-        # day = "YYYY-MM-DD"
         import datetime
         dt = datetime.datetime.strptime(day, "%Y-%m-%d")
         ts_start = dt.timestamp()
@@ -377,7 +393,7 @@ def db_user_session_log(user_id: int, period="all", year=None, month=None, week=
     and_clause = where.replace("WHERE", "AND") if where else ""
     with get_conn() as conn:
         rows = conn.execute(f"""
-            SELECT id, container_name, started_at, ended_at, duration
+            SELECT id, container_name, container_ip, started_at, ended_at, duration
             FROM session_log
             WHERE user_id=? {and_clause}
             ORDER BY started_at DESC
@@ -397,4 +413,39 @@ def db_find_user_by_container(container_name: str):
             GROUP BY sl.user_id
             ORDER BY sl.username
         """, (container_name,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def db_search_session_log(
+    query: str = None,
+    container_ip: str = None,
+    period="all", year=None, month=None, week=None, day=None
+):
+    """
+    Durchsucht den Session-Log nach username, container_name oder IP.
+    Zeitraum-Filter identisch zur Nutzungsrangliste.
+    """
+    where, params = _build_time_filter(period, year, month, week, day)
+    conditions = [where.replace("WHERE ", "")] if where else []
+
+    if container_ip:
+        conditions.append("container_ip = ?")
+        params.append(container_ip)
+
+    if query:
+        conditions.append("(username LIKE ? OR container_name LIKE ? OR container_ip LIKE ?)")
+        q = f"%{query}%"
+        params += [q, q, q]
+
+    where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+    with get_conn() as conn:
+        rows = conn.execute(f"""
+            SELECT id, username, user_id, container_name, container_ip,
+                   started_at, ended_at, duration
+            FROM session_log
+            {where_clause}
+            ORDER BY started_at DESC
+            LIMIT 500
+        """, params).fetchall()
     return [dict(r) for r in rows]

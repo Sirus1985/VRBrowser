@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from docker import DockerClient
 from config import (
     DOCKERHOST, DOCKERIMAGE, BASE_DOMAIN, PROXY_NETWORK,
-    TRAEFIK_ENTRYPOINT, USE_TLS, CERT_RESOLVER, PROFILES_BASE
+    TRAEFIK_ENTRYPOINT, USE_TLS, CERT_RESOLVER, PROFILES_BASE, BROWSER_DNS 
 )
 
 logger = logging.getLogger("vbrowser")
@@ -113,7 +113,7 @@ class DockerManager:
             "network":      PROXY_NETWORK,
             "labels":       labels,
             "volumes":      {profile_path: {"bind": "/config", "mode": "rw"}},
-            "environment":  {"KEEP_APP_RUNNING": "1", "FF_OPEN_URL": "https://google.com"},
+            "environment":  {"KEEP_APP_RUNNING": "1", "FF_PREF_network.trr.mode": "5", "FF_OPEN_URL": "https://google.com"},
         }
 
         # Seccomp nur setzen wenn konfiguriert und Image passt
@@ -122,12 +122,21 @@ class DockerManager:
             run_kwargs["security_opt"] = security_opt
             logger.info(f"Seccomp gesetzt für {DOCKERIMAGE}: {security_opt}")
 
+        # DNS nur setzen wenn BROWSER_DNS in .env konfiguriert  ← NEU
+        if BROWSER_DNS:
+            run_kwargs["dns"] = BROWSER_DNS
+            logger.info(f"Custom DNS für Browser-Container: {BROWSER_DNS}")     
+
         try:
             self.client.containers.run(**run_kwargs)
-            return f"https://{host}/"
+            # Container-IP ermitteln und zurückgeben
+            c = self.client.containers.get(container_name)
+            ip = c.attrs["NetworkSettings"]["Networks"].get(PROXY_NETWORK, {}).get("IPAddress")
+            return f"https://{host}/", ip   # ← IP mitgeben
         except Exception as e:
             logger.error(f"Container start failed: {e}")
             raise HTTPException(500, f"Container start failed: {e}")
 
+   
 
 docker_manager = DockerManager()

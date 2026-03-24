@@ -6,7 +6,42 @@ def get_html() -> str:
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>VBrowser</title>
     <style>
-        :root { --bg:#1e1e1e; --panel:#252526; --border:#333; --accent:#0e639c; --text:#ccc; --green:#2da44e; --sidebar-w:320px; }
+        :root { --bg:#1e1e1e; --panel:#252526; --border:#333; --accent:#0e639c; --text:#ccc; --green:#2da44e; --sidebar-w:320px; --sidebar-admin-w:580px; }
+
+        /* ── Light Mode ──────────────────────────────────────── */
+        body.light-mode {
+            --bg: #f0f0f0;
+            --panel: #ffffff;
+            --border: #ccc;
+            --text: #222;
+        }
+        body.light-mode input,
+        body.light-mode select {
+            background: #fff;
+            border-color: #bbb;
+            color: #222;
+        }
+        body.light-mode input.search {
+            background: #f5f5f5;
+            border-color: #bbb;
+        }
+        body.light-mode .section   { background: #e8e8e8; border-color: #ccc; }
+        body.light-mode .item      { background: #ddd; }
+        body.light-mode .tab       { background: #ddd; border-color: #bbb; color: #333; }
+        body.light-mode .session-item { background: #ddd; }
+        body.light-mode .session-item .s-meta { color: #555; }
+        body.light-mode .log-table th { background: #ccc; color: #222; }
+        body.light-mode .log-table td { border-bottom-color: #ccc; color: #222; }
+        body.light-mode .log-table tr:hover td { background: #e0e0e0; }
+        body.light-mode .log-table a { color: #0e639c; }
+        body.light-mode .modal-box { background: #f5f5f5; color: #222; border-color: #ccc; }
+        body.light-mode button.secondary { background: #d0d0d0; border-color: #bbb; color: #222; }
+        body.light-mode h3 { color: #111; }
+        body.light-mode h4 { color: #555; }
+        body.light-mode hr { border-top-color: #ccc; }
+        body.light-mode #placeholder { color: #999; }
+        body.light-mode #content { background: #e0e0e0; }
+
         * { box-sizing:border-box; }
         body { background:var(--bg); color:var(--text); font-family:-apple-system,system-ui,sans-serif; display:flex; height:100vh; margin:0; overflow:hidden; }
 
@@ -21,15 +56,23 @@ def get_html() -> str:
             border-right: 1px solid var(--border);
             overflow-y: auto;
             overflow-x: hidden;
-            transition: min-width 0.25s ease, width 0.25s ease, padding 0.25s ease, opacity 0.2s ease;
+            transition: min-width 0.3s ease, width 0.3s ease, padding 0.25s ease, opacity 0.2s ease;
         }
+
+        /* Admin-Bereich erweitert die Sidebar */
+        body.admin-expanded #sidebar {
+            width: var(--sidebar-admin-w);
+            min-width: var(--sidebar-admin-w);
+        }
+
+        /* Collapsed hat immer Vorrang – auch über admin-expanded */
         body.sidebar-collapsed #sidebar {
-            width: 0;
-            min-width: 0;
-            padding: 0;
-            opacity: 0;
-            pointer-events: none;
-            border-right: none;
+            width: 0 !important;
+            min-width: 0 !important;
+            padding: 0 !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            border-right: none !important;
         }
 
         #sidebarToggle {
@@ -129,16 +172,27 @@ def get_html() -> str:
         }
         .modal-close:hover { color:#fff; }
         #detail-total { margin-top:10px; font-weight:bold; text-align:right; font-size:13px; color:#aaa; }
+
+        /* Theme-Toggle Button */
+        #themeToggleBtn {
+            width:auto; padding:5px 8px; font-size:15px;
+            line-height:1;
+        }
+        #themeToggleBtn:hover { background:#555; }
+        body.light-mode #themeToggleBtn:hover { background:#bbb; }
     </style>
 </head>
 <body>
 <div id="sidebar">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
         <h3 style="margin:0;">VBrowser</h3>
-        <button class="secondary hidden" id="logoutBtn" onclick="logout()"
-                style="width:auto; padding:5px 10px; font-size:12px;">
-            Logout
-        </button>
+        <div style="display:flex; gap:5px; align-items:center;">
+            <button class="secondary" id="themeToggleBtn" onclick="cycleTheme()" title="Dark / Light / Auto">🌙</button>
+            <button class="secondary hidden" id="logoutBtn" onclick="logout()"
+                    style="width:auto; padding:5px 10px; font-size:12px;">
+                Logout
+            </button>
+        </div>
     </div>
 
     <div id="loginForm" class="section">
@@ -222,8 +276,6 @@ def get_html() -> str:
             <!-- TAB: Logging / Nutzungsanalyse (nur Superadmin) -->
             <div id="tab-logging" class="tab-content section" style="margin-top:6px">
                 <h4>&#128202; Nutzungsrangliste</h4>
-
-                <!-- Filter-Zeile Rangliste -->
                 <div class="log-filter-row">
                     <select id="log-period" onchange="onLogPeriodChange()">
                         <option value="all">Gesamt</option>
@@ -238,7 +290,6 @@ def get_html() -> str:
                     <input id="log-day"   type="date"                            style="display:none" onchange="loadRanking()">
                     <button onclick="loadRanking()" style="width:auto;padding:7px 12px;">&#8635;</button>
                 </div>
-
                 <div id="ranking-wrap" style="overflow-x:auto">
                     <table class="log-table">
                         <thead>
@@ -254,7 +305,6 @@ def get_html() -> str:
                         </tbody>
                     </table>
                 </div>
-
                 <hr>
                 <h4>&#128269; Container &#8594; Nutzer</h4>
                 <div class="log-filter-row">
@@ -269,7 +319,6 @@ def get_html() -> str:
     </div>
     <div id="status">Bereit</div>
 </div>
-
 
 <div id="content">
     <button id="sidebarToggle" onclick="toggleSidebar()" title="Sidebar ein-/ausblenden (Ctrl+B)">&#9664;</button>
@@ -295,8 +344,6 @@ def get_html() -> str:
         <div class="modal-box">
             <button class="modal-close" onclick="closeUserDetail()">&#10005;</button>
             <h3 id="detail-title" style="margin-bottom:12px">Sitzungsdetails</h3>
-
-            <!-- Filter im Modal -->
             <div class="log-filter-row" style="margin-bottom:10px">
                 <select id="detail-period" onchange="onDetailPeriodChange()">
                     <option value="all">Gesamt</option>
@@ -310,7 +357,6 @@ def get_html() -> str:
                 <input id="detail-week"  type="number" placeholder="KW" min="1" max="53" style="display:none" onchange="loadUserDetail()">
                 <input id="detail-day"   type="date" style="display:none" onchange="loadUserDetail()">
             </div>
-
             <div style="overflow-x:auto">
                 <table class="log-table">
                     <thead>
@@ -318,6 +364,7 @@ def get_html() -> str:
                             <th>Start</th>
                             <th>Ende</th>
                             <th style="text-align:right">Dauer</th>
+                            <th>IP</th>
                             <th>Container</th>
                         </tr>
                     </thead>
@@ -341,12 +388,58 @@ let healthCheckInterval = null;
 if (token && currentUser) showSessionUI();
 
 
-// ── Sidebar Toggle ──────────────────────────────────────────────
-function toggleSidebar() {
-    const collapsed = document.body.classList.toggle("sidebar-collapsed");
-    document.getElementById("sidebarToggle").innerHTML = collapsed ? "&#9654;" : "&#9664;";
-    localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0");
+// ── Theme (Dark / Light / Auto) ────────────────────────────────
+const _themes     = ['dark', 'light', 'auto'];
+const _themeIcons = { dark: '🌙', light: '☀️', auto: '🖥' };
+
+function applyTheme(mode) {
+    document.body.classList.remove('light-mode');
+    if (mode === 'light') {
+        document.body.classList.add('light-mode');
+    } else if (mode === 'auto') {
+        if (!window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.body.classList.add('light-mode');
+        }
+    }
+    const btn = document.getElementById('themeToggleBtn');
+    if (btn) btn.textContent = _themeIcons[mode];
+    localStorage.setItem('theme', mode);
 }
+
+function cycleTheme() {
+    const current = localStorage.getItem('theme') || 'dark';
+    const next = _themes[(_themes.indexOf(current) + 1) % 3];
+    applyTheme(next);
+}
+
+applyTheme(localStorage.getItem('theme') || 'dark');
+
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if ((localStorage.getItem('theme') || 'dark') === 'auto') applyTheme('auto');
+});
+
+
+// ── Sidebar Toggle ──────────────────────────────────────────────
+// Merkt sich ob admin-expanded war, bevor die Sidebar eingeklappt wurde
+let _adminWasExpanded = false;
+
+function toggleSidebar() {
+    const willCollapse = !document.body.classList.contains("sidebar-collapsed");
+    if (willCollapse) {
+        // Einfahren: admin-expanded-Zustand merken und entfernen
+        _adminWasExpanded = document.body.classList.contains("admin-expanded");
+        document.body.classList.remove("admin-expanded");
+        document.body.classList.add("sidebar-collapsed");
+        document.getElementById("sidebarToggle").innerHTML = "&#9654;";
+    } else {
+        // Ausfahren: sidebar-collapsed entfernen, admin-expanded ggf. wiederherstellen
+        document.body.classList.remove("sidebar-collapsed");
+        if (_adminWasExpanded) document.body.classList.add("admin-expanded");
+        document.getElementById("sidebarToggle").innerHTML = "&#9664;";
+    }
+    localStorage.setItem("sidebarCollapsed", willCollapse ? "1" : "0");
+}
+
 if (localStorage.getItem("sidebarCollapsed") === "1") {
     document.body.classList.add("sidebar-collapsed");
     document.getElementById("sidebarToggle").innerHTML = "&#9654;";
@@ -383,7 +476,6 @@ async function api(path, method="GET", body=null) {
     if (!res.ok) { const e = await res.json().catch(()=>({detail:"Fehler"})); throw new Error(e.detail||"Fehler"); }
     return res.json();
 }
-
 
 // ── Enter-Taste im Login ────────────────────────────────────────
 document.getElementById("username").addEventListener("keydown", e => {
@@ -469,7 +561,6 @@ async function resetProfile() {
     } catch(e) { setStatus(e.message, true); }
     setButtons(false);
 }
-
 
 // ── Session Start / Stop ────────────────────────────────────────
 async function startSession() {
@@ -577,7 +668,7 @@ function showSessionOverlay(msg) {
     document.getElementById("overlayMessage").textContent = msg;
     const btn = document.getElementById("overlayStartBtn");
     btn.disabled = false;
-    btn.textContent = "&#9654; Session starten";
+    btn.textContent = "▶ Session starten";
     document.getElementById("sessionOverlay").style.display = "flex";
     setSessionState(false);
     setStatus("Session inaktiv", true);
@@ -587,11 +678,10 @@ function showSessionOverlay(msg) {
 async function restartSessionFromOverlay() {
     const btn = document.getElementById("overlayStartBtn");
     btn.disabled = true;
-    btn.textContent = "&#9203; Starte...";
+    btn.textContent = "⏳ Starte...";
     document.getElementById("sessionOverlay").style.display = "none";
     await startSession();
 }
-
 
 // ── Admin Bereich ───────────────────────────────────────────────
 function switchTab(tab) {
@@ -611,7 +701,11 @@ function switchTab(tab) {
 function toggleAdmin() {
     const area = document.getElementById("adminArea");
     area.classList.toggle("hidden");
-    if (!area.classList.contains("hidden")) {
+    const expanded = !area.classList.contains("hidden");
+    document.body.classList.toggle("admin-expanded", expanded);
+    // Auch _adminWasExpanded aktualisieren damit toggleSidebar den Zustand kennt
+    _adminWasExpanded = expanded;
+    if (expanded) {
         loadUsers();
         if (currentUser?.isadmin) loadTeams();
     }
@@ -775,6 +869,7 @@ async function loadSessions() {
             return `<div class="session-item">
                 <div class="s-user">&#128100; ${s.username} <span class="badge active">&#9679; aktiv</span></div>
                 <div class="s-meta">Container: ${s.container_name}</div>
+                <div class="s-meta">IP: ${s.container_ip || '–'}</div>
                 <div class="s-meta">Gestartet: ${since}</div>
                 <div class="s-meta">Zuletzt aktiv: ${lastSeen}</div>
             </div>`;
@@ -864,7 +959,6 @@ function closeUserDetail() {
     document.getElementById("user-detail-modal").style.display = "none";
 }
 
-// Klick auf Modal-Hintergrund schliesst Modal
 document.getElementById("user-detail-modal").addEventListener("click", function(e) {
     if (e.target === this) closeUserDetail();
 });
@@ -888,11 +982,12 @@ async function loadUserDetail() {
                 <td>${fmtTs(row.started_at)}</td>
                 <td>${fmtTs(row.ended_at)}</td>
                 <td style="text-align:right">${fmtDuration(row.duration)}</td>
+                <td style="color:#666;font-size:11px">${row.container_ip || '–'}</td>
                 <td style="font-family:monospace;font-size:12px">${row.container_name}</td>
             </tr>`;
         }).join("");
         document.getElementById("detail-total").textContent =
-            `Gesamt: ${data.length} Sitzung(en) \u00b7 ${fmtDuration(totalSec)}`;
+            `Gesamt: ${data.length} Sitzung(en) · ${fmtDuration(totalSec)}`;
     } catch(e) {
         tbody.innerHTML = `<tr><td colspan='4' style='color:#f66;padding:10px'>${e.message}</td></tr>`;
     }
@@ -925,7 +1020,6 @@ async function searchContainer() {
     }
 }
 
-// Container-Suche mit Enter-Taste
 document.getElementById("container-search-input").addEventListener("keydown", e => {
     if (e.key === "Enter") searchContainer();
 });
