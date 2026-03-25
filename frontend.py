@@ -8,95 +8,55 @@ def get_html() -> str:
     <style>
         :root { --bg:#1e1e1e; --panel:#252526; --border:#333; --accent:#0e639c; --text:#ccc; --green:#2da44e; --sidebar-w:320px; --sidebar-admin-w:580px; }
 
-        /* ── Light Mode ──────────────────────────────────────── */
-        body.light-mode {
-            --bg: #f0f0f0;
-            --panel: #ffffff;
-            --border: #ccc;
-            --text: #222;
-        }
-        body.light-mode input,
-        body.light-mode select {
-            background: #fff;
-            border-color: #bbb;
-            color: #222;
-        }
-        body.light-mode input.search {
-            background: #f5f5f5;
-            border-color: #bbb;
-        }
-        body.light-mode .section   { background: #e8e8e8; border-color: #ccc; }
-        body.light-mode .item      { background: #ddd; }
-        body.light-mode .tab       { background: #ddd; border-color: #bbb; color: #333; }
-        body.light-mode .session-item { background: #ddd; }
-        body.light-mode .session-item .s-meta { color: #555; }
-        body.light-mode .log-table th { background: #ccc; color: #222; }
-        body.light-mode .log-table td { border-bottom-color: #ccc; color: #222; }
-        body.light-mode .log-table tr:hover td { background: #e0e0e0; }
-        body.light-mode .log-table a { color: #0e639c; }
-        body.light-mode .modal-box { background: #f5f5f5; color: #222; border-color: #ccc; }
-        body.light-mode button.secondary { background: #d0d0d0; border-color: #bbb; color: #222; }
-        body.light-mode h3 { color: #111; }
-        body.light-mode h4 { color: #555; }
-        body.light-mode hr { border-top-color: #ccc; }
-        body.light-mode #placeholder { color: #999; }
-        body.light-mode #content { background: #e0e0e0; }
+        body.light-mode { --bg:#f0f0f0; --panel:#ffffff; --border:#ccc; --text:#222; }
+        body.light-mode input, body.light-mode select { background:#fff; border-color:#bbb; color:#222; }
+        body.light-mode input.search { background:#f5f5f5; border-color:#bbb; }
+        body.light-mode .section   { background:#e8e8e8; border-color:#ccc; }
+        body.light-mode .item      { background:#ddd; }
+        body.light-mode .tab       { background:#ddd; border-color:#bbb; color:#333; }
+        body.light-mode .session-item { background:#ddd; }
+        body.light-mode .session-item .s-meta { color:#555; }
+        body.light-mode .log-table th { background:#ccc; color:#222; }
+        body.light-mode .log-table td { border-bottom-color:#ccc; color:#222; }
+        body.light-mode .log-table tr:hover td { background:#e0e0e0; }
+        body.light-mode .log-table a { color:#0e639c; }
+        body.light-mode .modal-box { background:#f5f5f5; color:#222; border-color:#ccc; }
+        body.light-mode button.secondary { background:#d0d0d0; border-color:#bbb; color:#222; }
+        body.light-mode h3 { color:#111; }
+        body.light-mode h4 { color:#555; }
+        body.light-mode hr { border-top-color:#ccc; }
+        body.light-mode #placeholder { color:#999; }
+        body.light-mode #content { background:#e0e0e0; }
+        body.light-mode .edit-inline-box { background:#fff; border-color:#bbb; }
+        body.light-mode .edit-inline-box input, body.light-mode .edit-inline-box select { background:#f5f5f5; }
 
         * { box-sizing:border-box; }
         body { background:var(--bg); color:var(--text); font-family:-apple-system,system-ui,sans-serif; display:flex; height:100vh; margin:0; overflow:hidden; }
 
         #sidebar {
-            width: var(--sidebar-w);
-            min-width: var(--sidebar-w);
-            background: var(--panel);
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            border-right: 1px solid var(--border);
-            overflow-y: auto;
-            overflow-x: hidden;
-            transition: min-width 0.3s ease, width 0.3s ease, padding 0.25s ease, opacity 0.2s ease;
+            width:var(--sidebar-w); min-width:var(--sidebar-w);
+            background:var(--panel); padding:20px;
+            display:flex; flex-direction:column; gap:10px;
+            border-right:1px solid var(--border);
+            overflow-y:auto; overflow-x:hidden;
+            transition:min-width 0.3s ease, width 0.3s ease, padding 0.25s ease, opacity 0.2s ease;
         }
-
-        /* Admin-Bereich erweitert die Sidebar */
-        body.admin-expanded #sidebar {
-            width: var(--sidebar-admin-w);
-            min-width: var(--sidebar-admin-w);
-        }
-
-        /* Collapsed hat immer Vorrang – auch über admin-expanded */
+        body.admin-expanded #sidebar { width:var(--sidebar-admin-w); min-width:var(--sidebar-admin-w); }
         body.sidebar-collapsed #sidebar {
-            width: 0 !important;
-            min-width: 0 !important;
-            padding: 0 !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-            border-right: none !important;
+            width:0 !important; min-width:0 !important; padding:0 !important;
+            opacity:0 !important; pointer-events:none !important; border-right:none !important;
         }
 
         #sidebarToggle {
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            z-index: 100;
-            width: 18px;
-            height: 48px;
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-left: none;
-            border-radius: 0 6px 6px 0;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #888;
-            font-size: 10px;
-            padding: 0;
-            transition: left 0.25s ease, background 0.15s;
+            position:absolute; left:0; top:50%; transform:translateY(-50%);
+            z-index:100; width:18px; height:48px;
+            background:var(--panel); border:1px solid var(--border);
+            border-left:none; border-radius:0 6px 6px 0;
+            cursor:pointer; display:flex; align-items:center; justify-content:center;
+            color:#888; font-size:10px; padding:0;
+            transition:left 0.25s ease, background 0.15s;
         }
-        #sidebarToggle:hover { background: #333; color: #fff; }
+        #sidebarToggle:hover { background:#333; color:#fff; }
 
         #content { flex:1; position:relative; background:#111; }
         iframe { width:100%; height:100%; border:none; display:none; }
@@ -112,10 +72,11 @@ def get_html() -> str:
         button.danger { background:#8b2010; }
         button.reset { background:#c0392b; }
         button.small { padding:4px 8px; font-size:12px; width:auto; }
+        button.warn  { background:#b07d00; }
         button:disabled { opacity:0.4; cursor:not-allowed; }
         .hidden { display:none !important; }
         .section { background:#2d2d2d; padding:12px; border:1px solid #444; border-radius:8px; display:flex; flex-direction:column; gap:8px; }
-        .item { display:flex; justify-content:space-between; align-items:center; background:#333; padding:7px 10px; border-radius:6px; font-size:13px; gap:6px; }
+        .item { display:flex; justify-content:space-between; align-items:center; background:#333; padding:7px 10px; border-radius:6px; font-size:13px; gap:6px; flex-wrap:wrap; }
         .item-left { display:flex; flex-direction:column; gap:3px; flex:1; min-width:0; }
         .item-name { font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .item-badges { display:flex; flex-wrap:wrap; gap:3px; }
@@ -144,7 +105,38 @@ def get_html() -> str:
         .session-item .s-meta { color:#888; }
         .settings-hint { font-size:11px; color:#666; margin-top:-4px; }
 
-        /* Logging Tab */
+        /* ── Inline-Edit Box ───────────────────────────────────── */
+        .edit-inline-box {
+            width:100%; background:#2a2a2a; border:1px solid #555;
+            border-radius:6px; padding:8px; margin-top:4px;
+            display:flex; flex-direction:column; gap:6px;
+        }
+        .edit-inline-box .edit-row { display:flex; gap:6px; align-items:center; }
+        .edit-inline-box .edit-row input,
+        .edit-inline-box .edit-row select { flex:1; padding:6px 8px; font-size:12px; }
+        .edit-inline-box .edit-row button { width:auto; padding:5px 10px; font-size:12px; }
+        .pw-wrap { position:relative; width:100%; }
+        .pw-wrap input { padding-right:34px; }
+        .pw-eye {
+            position:absolute; right:8px; top:50%; transform:translateY(-50%);
+            background:none; border:none; color:#888; cursor:pointer;
+            font-size:14px; padding:0; width:auto; line-height:1;
+        }
+        .pw-eye:hover { color:#fff; }
+
+        /* ── Ladebalken ────────────────────────────────────────── */
+        #startProgress {
+            display:none; position:absolute;
+            bottom:0; left:0; right:0; height:3px;
+            background:#1a1a1a; z-index:60;
+        }
+        #startProgressBar {
+            height:100%; width:0%;
+            background:var(--green);
+            transition:width 0.4s ease;
+        }
+
+        /* ── Logging Tab ───────────────────────────────────────── */
         .log-table { width:100%; border-collapse:collapse; font-size:13px; }
         .log-table th { background:#333; color:#fff; padding:6px 10px; text-align:left; position:sticky; top:0; }
         .log-table td { padding:6px 10px; border-bottom:1px solid #3a3a3a; }
@@ -154,8 +146,11 @@ def get_html() -> str:
         .log-filter-row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
         .log-filter-row input, .log-filter-row select { flex:1; min-width:80px; }
         .log-filter-row button { width:auto; padding:7px 14px; }
+        .rank-toggle { display:flex; gap:4px; margin-bottom:4px; }
+        .rank-toggle button { flex:1; padding:6px; font-size:12px; }
+        .rank-toggle button.active { background:var(--accent); border-color:var(--accent); }
 
-        /* Detail Modal */
+        /* ── Detail Modal ──────────────────────────────────────── */
         #user-detail-modal {
             display:none; position:fixed; inset:0;
             background:rgba(0,0,0,0.75); z-index:9999; overflow-y:auto;
@@ -173,33 +168,65 @@ def get_html() -> str:
         .modal-close:hover { color:#fff; }
         #detail-total { margin-top:10px; font-weight:bold; text-align:right; font-size:13px; color:#aaa; }
 
-        /* Theme-Toggle Button */
-        #themeToggleBtn {
-            width:auto; padding:5px 8px; font-size:15px;
-            line-height:1;
+        /* ── Confirm-Modal ─────────────────────────────────────── */
+        #confirm-modal {
+            display:none; position:fixed; inset:0;
+            background:rgba(0,0,0,0.8); z-index:99999;
+            align-items:center; justify-content:center;
         }
+        #confirm-modal.show { display:flex; }
+        .confirm-box {
+            background:#252526; border:1px solid #555; border-radius:10px;
+            padding:24px; max-width:360px; width:90%; display:flex;
+            flex-direction:column; gap:12px;
+        }
+        .confirm-box h4 { margin:0; color:#fff; font-size:15px; text-transform:none; letter-spacing:0; }
+        .confirm-box p  { margin:0; font-size:13px; color:#aaa; }
+        .confirm-box input { font-size:14px; }
+        .confirm-box .confirm-btns { display:flex; gap:8px; }
+        .confirm-box .confirm-btns button { flex:1; }
+
+        /* ── Theme Toggle ──────────────────────────────────────── */
+        #themeToggleBtn { width:auto; padding:5px 8px; font-size:15px; line-height:1; }
         #themeToggleBtn:hover { background:#555; }
         body.light-mode #themeToggleBtn:hover { background:#bbb; }
     </style>
 </head>
 <body>
+
+<!-- ── Confirm-Modal (Userlöschen) ──────────────────────────── -->
+<div id="confirm-modal">
+    <div class="confirm-box">
+        <h4>&#128465; User wirklich löschen?</h4>
+        <p id="confirm-msg">Bitte gib den Benutzernamen zur Bestätigung ein:</p>
+        <input id="confirm-input" placeholder="Benutzername eingeben..." autocomplete="off">
+        <div class="confirm-btns">
+            <button class="secondary" onclick="closeConfirm()">Abbrechen</button>
+            <button class="danger" id="confirm-ok-btn" onclick="confirmDeleteUser()" disabled>Löschen</button>
+        </div>
+    </div>
+</div>
+
 <div id="sidebar">
     <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
         <h3 style="margin:0;">VBrowser</h3>
         <div style="display:flex; gap:5px; align-items:center;">
             <button class="secondary" id="themeToggleBtn" onclick="cycleTheme()" title="Dark / Light / Auto">🌙</button>
             <button class="secondary hidden" id="logoutBtn" onclick="logout()"
-                    style="width:auto; padding:5px 10px; font-size:12px;">
-                Logout
-            </button>
+                    style="width:auto; padding:5px 10px; font-size:12px;">Logout</button>
         </div>
     </div>
 
+    <!-- Login -->
     <div id="loginForm" class="section">
         <input id="username" placeholder="Benutzername" autocomplete="username">
-        <input id="password" placeholder="Passwort" type="password" autocomplete="current-password">
+        <div class="pw-wrap">
+            <input id="password" placeholder="Passwort" type="password" autocomplete="current-password">
+            <button class="pw-eye" type="button" onclick="togglePw('password',this)" tabindex="-1">&#128065;</button>
+        </div>
         <button onclick="doLogin()">Einloggen</button>
     </div>
+
     <div id="sessionControls" class="hidden section">
         <button class="green" id="btnStart" onclick="startSession()">&#9654; Session starten</button>
         <button class="danger" id="btnStop" onclick="stopSession()" disabled>&#9632; Session beenden</button>
@@ -211,8 +238,8 @@ def get_html() -> str:
             Session automatisch nach Login starten
         </label>
         <hr>
-        <button class="reset" onclick="resetProfile()">&#128308; Firefox-Profil zuruecksetzen</button>
-        <div class="settings-hint">Loescht alle Einstellungen, Lesezeichen und den Verlauf dauerhaft.</div>
+        <button class="reset" onclick="resetProfile()">&#128308; Firefox-Profil zurücksetzen</button>
+        <div class="settings-hint">Löscht alle Einstellungen, Lesezeichen und den Verlauf dauerhaft.</div>
     </div>
     <div id="adminPanel" class="hidden">
         <hr>
@@ -239,7 +266,10 @@ def get_html() -> str:
                 <hr>
                 <h4>Neu anlegen</h4>
                 <input id="newUsername" placeholder="Benutzername">
-                <input id="newPassword" placeholder="Passwort" type="password">
+                <div class="pw-wrap">
+                    <input id="newPassword" placeholder="Passwort" type="password">
+                    <button class="pw-eye" type="button" onclick="togglePw('newPassword',this)" tabindex="-1">&#128065;</button>
+                </div>
                 <select id="newTeam"><option value="">-- Kein Team --</option></select>
                 <label id="newIsAdminLabel"><input id="newIsAdmin" type="checkbox"> Superadmin</label>
                 <button class="secondary" onclick="addUser()">+ User anlegen</button>
@@ -273,9 +303,14 @@ def get_html() -> str:
                 <div id="sessionList"><div style="color:#666;font-size:13px">Lade...</div></div>
             </div>
 
-            <!-- TAB: Logging / Nutzungsanalyse (nur Superadmin) -->
+            <!-- TAB: Logging -->
             <div id="tab-logging" class="tab-content section" style="margin-top:6px">
                 <h4>&#128202; Nutzungsrangliste</h4>
+                <!-- Umschalter Nutzer / Teams -->
+                <div class="rank-toggle">
+                    <button class="secondary active" id="rankModeUsers" onclick="setRankMode('users')">&#128100; Nutzer</button>
+                    <button class="secondary" id="rankModeTeams" onclick="setRankMode('teams')">&#128101; Teams</button>
+                </div>
                 <div class="log-filter-row">
                     <select id="log-period" onchange="onLogPeriodChange()">
                         <option value="all">Gesamt</option>
@@ -284,15 +319,15 @@ def get_html() -> str:
                         <option value="month">Monat</option>
                         <option value="year">Jahr</option>
                     </select>
-                    <input id="log-year"  type="number" placeholder="Jahr" style="display:none" onchange="loadRanking()">
+                    <input id="log-year"  type="number" placeholder="Jahr"      style="display:none" onchange="loadRanking()">
                     <input id="log-month" type="number" placeholder="Monat 1-12" style="display:none" min="1" max="12" onchange="loadRanking()">
-                    <input id="log-week"  type="number" placeholder="KW 1-53"    style="display:none" min="1" max="53" onchange="loadRanking()">
+                    <input id="log-week"  type="number" placeholder="KW 1-53"   style="display:none" min="1" max="53" onchange="loadRanking()">
                     <input id="log-day"   type="date"                            style="display:none" onchange="loadRanking()">
                     <button onclick="loadRanking()" style="width:auto;padding:7px 12px;">&#8635;</button>
                 </div>
                 <div id="ranking-wrap" style="overflow-x:auto">
                     <table class="log-table">
-                        <thead>
+                        <thead id="ranking-head">
                             <tr>
                                 <th style="width:32px">#</th>
                                 <th>Nutzer</th>
@@ -313,7 +348,6 @@ def get_html() -> str:
                 </div>
                 <div id="container-result"></div>
             </div>
-            <!-- ENDE TAB Logging -->
 
         </div>
     </div>
@@ -325,6 +359,9 @@ def get_html() -> str:
     <div id="placeholder">Bitte einloggen...</div>
     <iframe id="browserFrame"></iframe>
 
+    <!-- Ladebalken Session-Start -->
+    <div id="startProgress"><div id="startProgressBar"></div></div>
+
     <!-- Session-Expired Overlay -->
     <div id="sessionOverlay" style="display:none; position:absolute; inset:0;
          background:rgba(0,0,0,0.82); color:white; flex-direction:column;
@@ -334,9 +371,7 @@ def get_html() -> str:
             Deine Session ist nicht mehr aktiv.
         </div>
         <button class="green" id="overlayStartBtn" onclick="restartSessionFromOverlay()"
-                style="width:200px; margin-top:8px;">
-            &#9654; Session starten
-        </button>
+                style="width:200px; margin-top:8px;">&#9654; Session starten</button>
     </div>
 
     <!-- Nutzer-Detail Modal -->
@@ -352,29 +387,24 @@ def get_html() -> str:
                     <option value="month">Monat</option>
                     <option value="year">Jahr</option>
                 </select>
-                <input id="detail-year"  type="number" placeholder="Jahr" style="display:none" onchange="loadUserDetail()">
+                <input id="detail-year"  type="number" placeholder="Jahr"  style="display:none" onchange="loadUserDetail()">
                 <input id="detail-month" type="number" placeholder="Monat" min="1" max="12" style="display:none" onchange="loadUserDetail()">
-                <input id="detail-week"  type="number" placeholder="KW" min="1" max="53" style="display:none" onchange="loadUserDetail()">
-                <input id="detail-day"   type="date" style="display:none" onchange="loadUserDetail()">
+                <input id="detail-week"  type="number" placeholder="KW"    min="1" max="53" style="display:none" onchange="loadUserDetail()">
+                <input id="detail-day"   type="date"   style="display:none" onchange="loadUserDetail()">
             </div>
             <div style="overflow-x:auto">
                 <table class="log-table">
-                    <thead>
-                        <tr>
-                            <th>Start</th>
-                            <th>Ende</th>
-                            <th style="text-align:right">Dauer</th>
-                            <th>IP</th>
-                            <th>Container</th>
-                        </tr>
-                    </thead>
+                    <thead><tr>
+                        <th>Start</th><th>Ende</th>
+                        <th style="text-align:right">Dauer</th>
+                        <th>IP</th><th>Container</th>
+                    </tr></thead>
                     <tbody id="detail-body"></tbody>
                 </table>
             </div>
             <div id="detail-total"></div>
         </div>
     </div>
-
 </div>
 
 
@@ -388,58 +418,52 @@ let healthCheckInterval = null;
 if (token && currentUser) showSessionUI();
 
 
-// ── Theme (Dark / Light / Auto) ────────────────────────────────
-const _themes     = ['dark', 'light', 'auto'];
-const _themeIcons = { dark: '🌙', light: '☀️', auto: '🖥' };
-
+// ── Theme ───────────────────────────────────────────────────────
+const _themes     = ['dark','light','auto'];
+const _themeIcons = { dark:'🌙', light:'☀️', auto:'🖥' };
 function applyTheme(mode) {
     document.body.classList.remove('light-mode');
-    if (mode === 'light') {
+    if (mode === 'light') document.body.classList.add('light-mode');
+    else if (mode === 'auto' && !window.matchMedia('(prefers-color-scheme: dark)').matches)
         document.body.classList.add('light-mode');
-    } else if (mode === 'auto') {
-        if (!window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            document.body.classList.add('light-mode');
-        }
-    }
     const btn = document.getElementById('themeToggleBtn');
     if (btn) btn.textContent = _themeIcons[mode];
     localStorage.setItem('theme', mode);
 }
-
 function cycleTheme() {
-    const current = localStorage.getItem('theme') || 'dark';
-    const next = _themes[(_themes.indexOf(current) + 1) % 3];
-    applyTheme(next);
+    const cur = localStorage.getItem('theme') || 'dark';
+    applyTheme(_themes[(_themes.indexOf(cur)+1)%3]);
 }
-
 applyTheme(localStorage.getItem('theme') || 'dark');
-
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    if ((localStorage.getItem('theme') || 'dark') === 'auto') applyTheme('auto');
+    if ((localStorage.getItem('theme')||'dark') === 'auto') applyTheme('auto');
 });
 
 
-// ── Sidebar Toggle ──────────────────────────────────────────────
-// Merkt sich ob admin-expanded war, bevor die Sidebar eingeklappt wurde
-let _adminWasExpanded = false;
+// ── Passwort sichtbar/unsichtbar togglen ────────────────────────
+function togglePw(inputId, btn) {
+    const inp = document.getElementById(inputId);
+    if (inp.type === 'password') { inp.type = 'text';     btn.textContent = '🙈'; }
+    else                         { inp.type = 'password'; btn.textContent = '👁'; }
+}
 
+
+// ── Sidebar Toggle ──────────────────────────────────────────────
+let _adminWasExpanded = false;
 function toggleSidebar() {
     const willCollapse = !document.body.classList.contains("sidebar-collapsed");
     if (willCollapse) {
-        // Einfahren: admin-expanded-Zustand merken und entfernen
         _adminWasExpanded = document.body.classList.contains("admin-expanded");
         document.body.classList.remove("admin-expanded");
         document.body.classList.add("sidebar-collapsed");
         document.getElementById("sidebarToggle").innerHTML = "&#9654;";
     } else {
-        // Ausfahren: sidebar-collapsed entfernen, admin-expanded ggf. wiederherstellen
         document.body.classList.remove("sidebar-collapsed");
         if (_adminWasExpanded) document.body.classList.add("admin-expanded");
         document.getElementById("sidebarToggle").innerHTML = "&#9664;";
     }
     localStorage.setItem("sidebarCollapsed", willCollapse ? "1" : "0");
 }
-
 if (localStorage.getItem("sidebarCollapsed") === "1") {
     document.body.classList.add("sidebar-collapsed");
     document.getElementById("sidebarToggle").innerHTML = "&#9654;";
@@ -449,26 +473,22 @@ document.addEventListener("keydown", e => {
 });
 
 
-// ── Session State ───────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────
 function setSessionState(running) {
     document.getElementById("btnStart").disabled = running;
-    document.getElementById("btnStop").disabled = !running;
+    document.getElementById("btnStop").disabled  = !running;
 }
-
 function setStatus(msg, isError=false) {
     const el = document.getElementById("status");
     el.textContent = msg;
     el.style.color = isError ? "#f66" : "#888";
 }
-
 function setButtons(disabled) {
     document.querySelectorAll("button").forEach(b => {
-        if (!b.classList.contains("small") && b.id !== "btnStart" && b.id !== "btnStop") {
+        if (!b.classList.contains("small") && b.id !== "btnStart" && b.id !== "btnStop")
             b.disabled = disabled;
-        }
     });
 }
-
 async function api(path, method="GET", body=null) {
     const opts = { method, headers: { "Authorization": `Bearer ${token}` } };
     if (body) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
@@ -477,7 +497,8 @@ async function api(path, method="GET", body=null) {
     return res.json();
 }
 
-// ── Enter-Taste im Login ────────────────────────────────────────
+
+// ── Login ───────────────────────────────────────────────────────
 document.getElementById("username").addEventListener("keydown", e => {
     if (e.key === "Enter") document.getElementById("password").focus();
 });
@@ -485,16 +506,14 @@ document.getElementById("password").addEventListener("keydown", e => {
     if (e.key === "Enter") doLogin();
 });
 
-
-// ── Login ───────────────────────────────────────────────────────
 async function doLogin() {
     setButtons(true);
+    setStatus("Logge ein...");
     const u = document.getElementById("username").value;
     const p = document.getElementById("password").value;
-    setStatus("Logge ein...");
     try {
         const res = await fetch("/api/login", {
-            method: "POST", headers: {"Content-Type":"application/json"},
+            method:"POST", headers:{"Content-Type":"application/json"},
             body: JSON.stringify({username:u, password:p})
         });
         if (!res.ok) throw new Error("Login fehlgeschlagen");
@@ -504,9 +523,7 @@ async function doLogin() {
         localStorage.setItem("currentUser", JSON.stringify(data));
         showSessionUI();
         setStatus("Eingeloggt als " + u);
-        if (data.auto_start_session) {
-            setTimeout(() => startSession(), 500);
-        }
+        if (data.auto_start_session) setTimeout(() => startSession(), 500);
     } catch(e) { setStatus(e.message, true); }
     setButtons(false);
 }
@@ -517,7 +534,7 @@ function showSessionUI() {
     document.getElementById("settingsPanel").classList.remove("hidden");
     document.getElementById("logoutBtn").classList.remove("hidden");
     document.getElementById("placeholder").textContent = "";
-    const isAdmin = currentUser?.isadmin;
+    const isAdmin    = currentUser?.isadmin;
     const isTeamAdmin = currentUser?.admin_teams?.length > 0;
     if (isAdmin || isTeamAdmin) {
         document.getElementById("adminPanel").classList.remove("hidden");
@@ -535,7 +552,6 @@ async function loadSettings() {
         document.getElementById("autoStartCb").checked = !!data.auto_start_session;
     } catch(e) {}
 }
-
 async function saveSettings() {
     const auto = document.getElementById("autoStartCb").checked;
     try {
@@ -543,33 +559,49 @@ async function saveSettings() {
         setStatus("Einstellungen gespeichert");
     } catch(e) { setStatus(e.message, true); }
 }
-
 async function resetProfile() {
-    if (!confirm("Wirklich das Firefox-Profil zuruecksetzen? Alle Lesezeichen und Einstellungen werden geloescht!")) return;
-    setButtons(true);
-    setStatus("Setze Profil zurueck...");
+    if (!confirm("Wirklich das Firefox-Profil zurücksetzen? Alle Lesezeichen und Einstellungen werden gelöscht!")) return;
+    setButtons(true); setStatus("Setze Profil zurück...");
     try {
         await api("/api/session/reset", "POST");
         document.getElementById("browserFrame").src = "";
         document.getElementById("browserFrame").style.display = "none";
         document.getElementById("placeholder").style.display = "flex";
-        document.getElementById("placeholder").textContent = "Profil zurueckgesetzt. Neue Session starten.";
-        setStatus("Profil zurueckgesetzt");
-        setSessionState(false);
-        stopHealthPolling();
-        currentSessionId = null;
+        document.getElementById("placeholder").textContent = "Profil zurückgesetzt. Neue Session starten.";
+        setStatus("Profil zurückgesetzt");
+        setSessionState(false); stopHealthPolling(); currentSessionId = null;
     } catch(e) { setStatus(e.message, true); }
     setButtons(false);
 }
 
+async function logout() {
+    stopHealthPolling(); currentSessionId = null;
+    setStatus("Trenne Session...");
+    if (!document.getElementById("btnStop").disabled) {
+        try { await api("/api/session/stop","POST"); } catch(e) {}
+    }
+    localStorage.clear(); location.reload();
+}
+
+
 // ── Session Start / Stop ────────────────────────────────────────
+function setProgress(pct) {
+    const wrap = document.getElementById("startProgress");
+    const bar  = document.getElementById("startProgressBar");
+    if (pct === null) { wrap.style.display = "none"; bar.style.width = "0%"; return; }
+    wrap.style.display = "block";
+    bar.style.width = pct + "%";
+}
+
 async function startSession() {
     setButtons(true);
     setStatus("Starte Container...");
+    setProgress(10);
     try {
         const data = await api("/api/session/start", "POST");
         currentSessionId = data.session_id ?? "active";
         setStatus("Lade Browser...");
+        setProgress(40);
         const cookieFrame = document.createElement("iframe");
         cookieFrame.style.display = "none";
         const browserHost = new URL(data.url).host;
@@ -577,118 +609,90 @@ async function startSession() {
             + `?token=${encodeURIComponent(data.token)}`
             + `&redirect=${encodeURIComponent(data.url)}`;
         document.body.appendChild(cookieFrame);
+        // Animiere Fortschritt 40→90 über 4s
+        let prog = 40;
+        const progInt = setInterval(() => {
+            prog = Math.min(90, prog + 5);
+            setProgress(prog);
+        }, 400);
         setTimeout(() => {
+            clearInterval(progInt);
             document.body.removeChild(cookieFrame);
             const frame = document.getElementById("browserFrame");
             frame.src = data.url;
             frame.style.display = "block";
             document.getElementById("placeholder").style.display = "none";
             document.getElementById("sessionOverlay").style.display = "none";
-            setStatus("Browser laeuft");
-            setSessionState(true);
-            setButtons(false);
+            setProgress(100);
+            setTimeout(() => setProgress(null), 600);
+            setStatus("Browser läuft");
+            setSessionState(true); setButtons(false);
             startHealthPolling();
             if (!document.body.classList.contains("sidebar-collapsed")) toggleSidebar();
         }, 5000);
     } catch(e) {
+        setProgress(null);
         setStatus(e.message, true);
         setButtons(false);
     }
 }
 
 async function stopSession() {
-    stopHealthPolling();
-    currentSessionId = null;
-    setButtons(true);
+    stopHealthPolling(); currentSessionId = null; setButtons(true);
     try {
-        await api("/api/session/stop", "POST");
+        await api("/api/session/stop","POST");
         document.getElementById("browserFrame").src = "";
         document.getElementById("browserFrame").style.display = "none";
         document.getElementById("sessionOverlay").style.display = "none";
         document.getElementById("placeholder").style.display = "flex";
         document.getElementById("placeholder").textContent = "Session beendet";
-        setStatus("Session gestoppt");
-        setSessionState(false);
+        setStatus("Session gestoppt"); setSessionState(false);
     } catch(e) { setStatus(e.message, true); }
     setButtons(false);
 }
 
-async function logout() {
-    stopHealthPolling();
-    currentSessionId = null;
-    setStatus("Trenne Session...");
-    if (!document.getElementById("btnStop").disabled) {
-        try { await api("/api/session/stop", "POST"); } catch(e) {}
-    }
-    localStorage.clear();
-    location.reload();
-}
 
-
-// ── Session Health Check ────────────────────────────────────────
+// ── Health Check ────────────────────────────────────────────────
 document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && currentSessionId) {
-        pollSessionHealth();
-        startHealthPolling();
-    } else {
-        stopHealthPolling();
-    }
+        pollSessionHealth(); startHealthPolling();
+    } else { stopHealthPolling(); }
 });
-
-function startHealthPolling() {
-    stopHealthPolling();
-    healthCheckInterval = setInterval(pollSessionHealth, 30000);
-}
-
-function stopHealthPolling() {
-    if (healthCheckInterval) {
-        clearInterval(healthCheckInterval);
-        healthCheckInterval = null;
-    }
-}
-
+function startHealthPolling() { stopHealthPolling(); healthCheckInterval = setInterval(pollSessionHealth, 30000); }
+function stopHealthPolling()  { if (healthCheckInterval) { clearInterval(healthCheckInterval); healthCheckInterval = null; } }
 async function pollSessionHealth() {
     if (!currentSessionId) return;
     try {
-        const res = await fetch("/api/session/status", {
-            headers: { "Authorization": `Bearer ${token}` }
-        });
+        const res = await fetch("/api/session/status", { headers:{"Authorization":`Bearer ${token}`} });
         if (!res.ok) { showSessionOverlay("Session nicht mehr erreichbar."); return; }
         const data = await res.json();
         if (!data.running) showSessionOverlay("Deine Session ist abgelaufen oder wurde beendet.");
-    } catch {
-        showSessionOverlay("Verbindung zum Server verloren.");
-    }
+    } catch { showSessionOverlay("Verbindung zum Server verloren."); }
 }
-
 function showSessionOverlay(msg) {
-    stopHealthPolling();
-    currentSessionId = null;
+    stopHealthPolling(); currentSessionId = null;
     document.getElementById("browserFrame").style.display = "none";
     document.getElementById("overlayMessage").textContent = msg;
     const btn = document.getElementById("overlayStartBtn");
-    btn.disabled = false;
-    btn.textContent = "▶ Session starten";
+    btn.disabled = false; btn.textContent = "▶ Session starten";
     document.getElementById("sessionOverlay").style.display = "flex";
-    setSessionState(false);
-    setStatus("Session inaktiv", true);
+    setSessionState(false); setStatus("Session inaktiv", true);
     if (document.body.classList.contains("sidebar-collapsed")) toggleSidebar();
 }
-
 async function restartSessionFromOverlay() {
     const btn = document.getElementById("overlayStartBtn");
-    btn.disabled = true;
-    btn.textContent = "⏳ Starte...";
+    btn.disabled = true; btn.textContent = "⏳ Starte...";
     document.getElementById("sessionOverlay").style.display = "none";
     await startSession();
 }
 
-// ── Admin Bereich ───────────────────────────────────────────────
+
+// ── Admin ───────────────────────────────────────────────────────
 function switchTab(tab) {
     document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
     document.querySelectorAll(".tab").forEach(el => el.classList.remove("active"));
-    document.getElementById("tab-" + tab).classList.add("active");
-    const tabNames = ["users", "teams", "sessions", "logging"];
+    document.getElementById("tab-"+tab).classList.add("active");
+    const tabNames = ["users","teams","sessions","logging"];
     const tabBtns  = document.querySelectorAll(".tab");
     const idx = tabNames.indexOf(tab);
     if (tabBtns[idx]) tabBtns[idx].classList.add("active");
@@ -697,18 +701,13 @@ function switchTab(tab) {
     if (tab === "sessions") loadSessions();
     if (tab === "logging")  loadRanking();
 }
-
 function toggleAdmin() {
     const area = document.getElementById("adminArea");
     area.classList.toggle("hidden");
     const expanded = !area.classList.contains("hidden");
     document.body.classList.toggle("admin-expanded", expanded);
-    // Auch _adminWasExpanded aktualisieren damit toggleSidebar den Zustand kennt
     _adminWasExpanded = expanded;
-    if (expanded) {
-        loadUsers();
-        if (currentUser?.isadmin) loadTeams();
-    }
+    if (expanded) { loadUsers(); if (currentUser?.isadmin) loadTeams(); }
 }
 
 async function loadUsers() {
@@ -749,7 +748,11 @@ function renderUsers() {
         : filtered.map(u => {
             const teamName   = allTeams.find(t => t.id === u.team_id)?.name || "";
             const adminTeams = teamAdminMap[u.id] || [];
-            return `<div class="item">
+            const teamOpts   = allTeams.map(t =>
+                `<option value="${t.id}" ${t.id === u.team_id ? 'selected' : ''}>${t.name}</option>`
+            ).join("");
+            const canEdit = u.username !== "admin" && !u.isadmin;
+            return `<div class="item" id="user-item-${u.id}">
                 <div class="item-left">
                     <div class="item-name">${u.username}</div>
                     <div class="item-badges">
@@ -759,11 +762,55 @@ function renderUsers() {
                     </div>
                 </div>
                 <div class="item-actions">
-                    ${u.username !== "admin" && !u.isadmin
-                        ? `<button class="danger small" onclick="deleteUser(${u.id})">&#10005;</button>` : ''}
+                    ${canEdit ? `
+                        <button class="warn small" onclick="toggleEditUser(${u.id})" title="Bearbeiten">&#9998;</button>
+                        <button class="danger small" onclick="askDeleteUser(${u.id},'${u.username}')">&#10005;</button>
+                    ` : ''}
                 </div>
+                ${canEdit ? `
+                <div class="edit-inline-box hidden" id="edit-box-${u.id}">
+                    <div class="edit-row">
+                        <span style="font-size:12px;color:#aaa;white-space:nowrap">Team:</span>
+                        <select id="edit-team-${u.id}">
+                            <option value="">-- Kein Team --</option>
+                            ${teamOpts}
+                        </select>
+                        <button class="secondary" onclick="saveUserTeam(${u.id})">Speichern</button>
+                    </div>
+                    <div class="edit-row">
+                        <div class="pw-wrap" style="flex:1">
+                            <input id="edit-pw-${u.id}" type="password" placeholder="Neues Passwort">
+                            <button class="pw-eye" type="button" onclick="togglePw('edit-pw-${u.id}',this)" tabindex="-1">&#128065;</button>
+                        </div>
+                        <button class="secondary" onclick="saveUserPw(${u.id})">Ändern</button>
+                    </div>
+                </div>` : ''}
             </div>`;
         }).join("");
+}
+
+function toggleEditUser(id) {
+    const box = document.getElementById(`edit-box-${id}`);
+    box.classList.toggle("hidden");
+}
+
+async function saveUserTeam(id) {
+    const teamId = document.getElementById(`edit-team-${id}`).value;
+    try {
+        await api(`/api/users/${id}`, "PATCH", { team_id: teamId ? parseInt(teamId) : null });
+        setStatus("Team aktualisiert");
+        loadUsers();
+    } catch(e) { setStatus(e.message, true); }
+}
+
+async function saveUserPw(id) {
+    const pw = document.getElementById(`edit-pw-${id}`).value.trim();
+    if (!pw) return setStatus("Bitte ein neues Passwort eingeben", true);
+    try {
+        await api(`/api/users/${id}`, "PATCH", { password: pw });
+        setStatus("Passwort geändert");
+        document.getElementById(`edit-pw-${id}`).value = "";
+    } catch(e) { setStatus(e.message, true); }
 }
 
 async function addUser() {
@@ -782,15 +829,46 @@ async function addUser() {
     } catch(e) { setStatus(e.message, true); }
 }
 
-async function deleteUser(id) {
-    if (!confirm("User wirklich loeschen?")) return;
+
+// ── Bestätigungsdialog User löschen ────────────────────────────
+let _deleteUserId   = null;
+let _deleteUsername = "";
+
+function askDeleteUser(id, username) {
+    _deleteUserId   = id;
+    _deleteUsername = username;
+    document.getElementById("confirm-msg").textContent =
+        `Bitte gib "${username}" zur Bestätigung ein:`;
+    const inp = document.getElementById("confirm-input");
+    inp.value = "";
+    document.getElementById("confirm-ok-btn").disabled = true;
+    document.getElementById("confirm-modal").classList.add("show");
+    setTimeout(() => inp.focus(), 50);
+}
+document.getElementById("confirm-input").addEventListener("input", function() {
+    document.getElementById("confirm-ok-btn").disabled =
+        this.value.trim() !== _deleteUsername;
+});
+document.getElementById("confirm-input").addEventListener("keydown", e => {
+    if (e.key === "Enter" && !document.getElementById("confirm-ok-btn").disabled) confirmDeleteUser();
+    if (e.key === "Escape") closeConfirm();
+});
+function closeConfirm() {
+    document.getElementById("confirm-modal").classList.remove("show");
+    _deleteUserId = null; _deleteUsername = "";
+}
+async function confirmDeleteUser() {
+    if (!_deleteUserId) return;
+    const id = _deleteUserId;
+    closeConfirm();
     try {
         await api(`/api/users/${id}`, "DELETE");
-        loadUsers();
-        setStatus("User geloescht");
+        loadUsers(); setStatus("User gelöscht");
     } catch(e) { setStatus(e.message, true); }
 }
 
+
+// ── Teams ───────────────────────────────────────────────────────
 async function loadTeams() {
     try {
         const teams = await api("/api/teams");
@@ -804,14 +882,13 @@ async function loadTeams() {
         taTeam.innerHTML = "";
         teams.forEach(t => taTeam.innerHTML += `<option value="${t.id}">${t.name}</option>`);
         taTeam._allOptions = Array.from(taTeam.options).map(o => ({v:o.value, t:o.text}));
-        const allU   = await api("/api/users");
+        const allU = await api("/api/users");
         const taUser = document.getElementById("taUser");
         taUser.innerHTML = "";
         allU.filter(u => !u.isadmin).forEach(u => taUser.innerHTML += `<option value="${u.id}">${u.username}</option>`);
         taUser._allOptions = Array.from(taUser.options).map(o => ({v:o.value, t:o.text}));
     } catch(e) { setStatus(e.message, true); }
 }
-
 function filterSelect(selectId, searchId) {
     const sel   = document.getElementById(selectId);
     const query = document.getElementById(searchId).value.toLowerCase();
@@ -819,57 +896,52 @@ function filterSelect(selectId, searchId) {
     sel.innerHTML = "";
     sel._allOptions.filter(o => o.t.toLowerCase().includes(query)).forEach(o => {
         const opt = document.createElement("option");
-        opt.value = o.v; opt.text = o.t;
-        sel.appendChild(opt);
+        opt.value = o.v; opt.text = o.t; sel.appendChild(opt);
     });
 }
-
 async function addTeam() {
     const name = document.getElementById("newTeamName").value.trim();
     if (!name) return setStatus("Bitte Teamname eingeben", true);
     try {
-        await api("/api/teams", "POST", {name});
+        await api("/api/teams","POST",{name});
         document.getElementById("newTeamName").value = "";
-        loadTeams(); loadUsers();
-        setStatus("Team angelegt: " + name);
+        loadTeams(); loadUsers(); setStatus("Team angelegt: " + name);
     } catch(e) { setStatus(e.message, true); }
 }
-
 async function deleteTeam(id) {
-    if (!confirm("Team wirklich loeschen?")) return;
+    if (!confirm("Team wirklich löschen?")) return;
     try {
-        await api(`/api/teams/${id}`, "DELETE");
-        loadTeams(); loadUsers();
-        setStatus("Team geloescht");
+        await api(`/api/teams/${id}`,"DELETE");
+        loadTeams(); loadUsers(); setStatus("Team gelöscht");
     } catch(e) { setStatus(e.message, true); }
 }
-
 async function assignTeamAdmin() {
     const team_id = parseInt(document.getElementById("taTeam").value);
     const user_id = parseInt(document.getElementById("taUser").value);
-    if (!team_id || !user_id) return setStatus("Bitte Team und User waehlen", true);
+    if (!team_id || !user_id) return setStatus("Bitte Team und User wählen", true);
     try {
-        await api(`/api/teams/${team_id}/admins`, "POST", {user_id});
-        loadUsers();
-        setStatus("Team-Admin zugewiesen");
+        await api(`/api/teams/${team_id}/admins`,"POST",{user_id});
+        loadUsers(); setStatus("Team-Admin zugewiesen");
     } catch(e) { setStatus(e.message, true); }
 }
 
+
+// ── Sessions ────────────────────────────────────────────────────
 async function loadSessions() {
     try {
         const sessions = await api("/api/sessions");
-        if (sessions.length === 0) {
+        if (!sessions.length) {
             document.getElementById("sessionList").innerHTML =
                 "<div style='color:#666;font-size:13px'>Keine aktiven Sessions</div>";
             return;
         }
         document.getElementById("sessionList").innerHTML = sessions.map(s => {
-            const since    = new Date(s.created_at * 1000).toLocaleString('de-DE');
-            const lastSeen = new Date(s.last_seen * 1000).toLocaleTimeString('de-DE');
+            const since    = new Date(s.created_at*1000).toLocaleString('de-DE');
+            const lastSeen = new Date(s.last_seen*1000).toLocaleTimeString('de-DE');
             return `<div class="session-item">
                 <div class="s-user">&#128100; ${s.username} <span class="badge active">&#9679; aktiv</span></div>
                 <div class="s-meta">Container: ${s.container_name}</div>
-                <div class="s-meta">IP: ${s.container_ip || '–'}</div>
+                <div class="s-meta">IP: ${s.container_ip||'–'}</div>
                 <div class="s-meta">Gestartet: ${since}</div>
                 <div class="s-meta">Zuletzt aktiv: ${lastSeen}</div>
             </div>`;
@@ -879,43 +951,48 @@ async function loadSessions() {
 
 
 // ══════════════════════════════════════════════════════════════════
-// LOGGING / NUTZUNGSANALYSE
+// LOGGING
 // ══════════════════════════════════════════════════════════════════
+let _rankMode = "users"; // "users" | "teams"
+
+function setRankMode(mode) {
+    _rankMode = mode;
+    document.getElementById("rankModeUsers").classList.toggle("active", mode === "users");
+    document.getElementById("rankModeTeams").classList.toggle("active", mode === "teams");
+    // Spaltenheader anpassen
+    document.getElementById("ranking-head").innerHTML = mode === "users"
+        ? `<tr><th style="width:32px">#</th><th>Nutzer</th><th style="text-align:right">Sitzungen</th><th style="text-align:right">Gesamtzeit</th></tr>`
+        : `<tr><th style="width:32px">#</th><th>Team</th><th style="text-align:right">Sitzungen</th><th style="text-align:right">Gesamtzeit</th></tr>`;
+    loadRanking();
+}
 
 function fmtDuration(sec) {
-    sec = Math.round(sec || 0);
-    const h = Math.floor(sec / 3600);
-    const m = Math.floor((sec % 3600) / 60);
-    const s = sec % 60;
-    if (h > 0) return `${h}h ${m}m`;
-    if (m > 0) return `${m}m ${s}s`;
+    sec = Math.round(sec||0);
+    const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+    if (h>0) return `${h}h ${m}m`;
+    if (m>0) return `${m}m ${s}s`;
     return `${s}s`;
 }
-
-function fmtTs(ts) {
-    return new Date(ts * 1000).toLocaleString("de-DE");
-}
+function fmtTs(ts) { return new Date(ts*1000).toLocaleString("de-DE"); }
 
 function buildLogParams(prefix) {
-    const period = document.getElementById(prefix + "period").value;
-    const p = new URLSearchParams({ period });
-    if (period === "day")   { p.set("day",   document.getElementById(prefix + "day").value); }
-    if (period === "week")  { p.set("year",  document.getElementById(prefix + "year").value);
-                              p.set("week",  document.getElementById(prefix + "week").value); }
-    if (period === "month") { p.set("year",  document.getElementById(prefix + "year").value);
-                              p.set("month", document.getElementById(prefix + "month").value); }
-    if (period === "year")  { p.set("year",  document.getElementById(prefix + "year").value); }
+    const period = document.getElementById(prefix+"period").value;
+    const p = new URLSearchParams({period});
+    if (period==="day")   p.set("day",   document.getElementById(prefix+"day").value);
+    if (period==="week")  { p.set("year", document.getElementById(prefix+"year").value);
+                            p.set("week", document.getElementById(prefix+"week").value); }
+    if (period==="month") { p.set("year", document.getElementById(prefix+"year").value);
+                            p.set("month",document.getElementById(prefix+"month").value); }
+    if (period==="year")  p.set("year",  document.getElementById(prefix+"year").value);
     return p;
 }
-
 function showPeriodFields(prefix) {
-    const period = document.getElementById(prefix + "period").value;
-    document.getElementById(prefix + "year").style.display  = ["week","month","year"].includes(period) ? "" : "none";
-    document.getElementById(prefix + "month").style.display = period === "month" ? "" : "none";
-    document.getElementById(prefix + "week").style.display  = period === "week"  ? "" : "none";
-    document.getElementById(prefix + "day").style.display   = period === "day"   ? "" : "none";
+    const period = document.getElementById(prefix+"period").value;
+    document.getElementById(prefix+"year").style.display  = ["week","month","year"].includes(period) ? "" : "none";
+    document.getElementById(prefix+"month").style.display = period==="month" ? "" : "none";
+    document.getElementById(prefix+"week").style.display  = period==="week"  ? "" : "none";
+    document.getElementById(prefix+"day").style.display   = period==="day"   ? "" : "none";
 }
-
 function onLogPeriodChange()    { showPeriodFields("log-");    loadRanking(); }
 function onDetailPeriodChange() { showPeriodFields("detail-"); loadUserDetail(); }
 
@@ -924,74 +1001,87 @@ async function loadRanking() {
     const tbody  = document.getElementById("ranking-body");
     tbody.innerHTML = "<tr><td colspan='4' style='color:#666;padding:10px'>Lade...</td></tr>";
     try {
-        const data = await api("/api/admin/logging/ranking?" + params);
-        if (!data.length) {
-            tbody.innerHTML = "<tr><td colspan='4' style='color:#666;padding:10px'>Keine Daten fuer diesen Zeitraum.</td></tr>";
-            return;
+        let endpoint, data;
+        if (_rankMode === "teams") {
+            endpoint = "/api/admin/logging/ranking/teams?" + params;
+            data = await api(endpoint);
+            if (!data.length) {
+                tbody.innerHTML = "<tr><td colspan='4' style='color:#666;padding:10px'>Keine Daten.</td></tr>";
+                return;
+            }
+            tbody.innerHTML = data.map((row,i) => `
+                <tr>
+                    <td>${i+1}</td>
+                    <td>${row.team_name || '–'}</td>
+                    <td style="text-align:right">${row.session_count}</td>
+                    <td style="text-align:right">${fmtDuration(row.total_seconds)}</td>
+                </tr>`).join("");
+        } else {
+            endpoint = "/api/admin/logging/ranking?" + params;
+            data = await api(endpoint);
+            if (!data.length) {
+                tbody.innerHTML = "<tr><td colspan='4' style='color:#666;padding:10px'>Keine Daten.</td></tr>";
+                return;
+            }
+            tbody.innerHTML = data.map((row,i) => `
+                <tr>
+                    <td>${i+1}</td>
+                    <td><a href="#" onclick="openUserDetail(${row.user_id},'${row.username}');return false">${row.username}</a></td>
+                    <td style="text-align:right">${row.session_count}</td>
+                    <td style="text-align:right">${fmtDuration(row.total_seconds)}</td>
+                </tr>`).join("");
         }
-        tbody.innerHTML = data.map((row, i) => `
-            <tr>
-                <td>${i + 1}</td>
-                <td><a href="#" onclick="openUserDetail(${row.user_id},'${row.username}');return false">${row.username}</a></td>
-                <td style="text-align:right">${row.session_count}</td>
-                <td style="text-align:right">${fmtDuration(row.total_seconds)}</td>
-            </tr>`).join("");
     } catch(e) {
         tbody.innerHTML = `<tr><td colspan='4' style='color:#f66;padding:10px'>${e.message}</td></tr>`;
     }
 }
 
+
 // ── Nutzer-Detail Modal ─────────────────────────────────────────
-let _detailUserId   = null;
-let _detailUsername = "";
+let _detailUserId = null, _detailUsername = "";
 
 async function openUserDetail(userId, username) {
-    _detailUserId   = userId;
-    _detailUsername = username;
+    _detailUserId = userId; _detailUsername = username;
     document.getElementById("detail-title").textContent = `Sitzungen: ${username}`;
     document.getElementById("detail-period").value = "all";
     showPeriodFields("detail-");
     document.getElementById("user-detail-modal").style.display = "block";
     await loadUserDetail();
 }
-
-function closeUserDetail() {
-    document.getElementById("user-detail-modal").style.display = "none";
-}
-
+function closeUserDetail() { document.getElementById("user-detail-modal").style.display = "none"; }
 document.getElementById("user-detail-modal").addEventListener("click", function(e) {
     if (e.target === this) closeUserDetail();
 });
-
 async function loadUserDetail() {
     if (!_detailUserId) return;
     const params = buildLogParams("detail-");
     const tbody  = document.getElementById("detail-body");
-    tbody.innerHTML = "<tr><td colspan='4' style='color:#666;padding:10px'>Lade...</td></tr>";
+    tbody.innerHTML = "<tr><td colspan='5' style='color:#666;padding:10px'>Lade...</td></tr>";
     document.getElementById("detail-total").textContent = "";
     try {
-        const data = await api(`/api/admin/logging/user/${_detailUserId}?` + params);
+        const data = await api(`/api/admin/logging/user/${_detailUserId}?`+params);
         if (!data.length) {
-            tbody.innerHTML = "<tr><td colspan='4' style='color:#666;padding:10px'>Keine Sitzungen gefunden.</td></tr>";
+            tbody.innerHTML = "<tr><td colspan='5' style='color:#666;padding:10px'>Keine Sitzungen gefunden.</td></tr>";
             return;
         }
         let totalSec = 0;
         tbody.innerHTML = data.map(row => {
-            totalSec += row.duration || 0;
+            totalSec += row.duration||0;
             return `<tr>
                 <td>${fmtTs(row.started_at)}</td>
                 <td>${fmtTs(row.ended_at)}</td>
                 <td style="text-align:right">${fmtDuration(row.duration)}</td>
-                <td style="color:#666;font-size:11px">${row.container_ip || '–'}</td>
+                <td style="color:#666;font-size:11px">${row.container_ip||'–'}</td>
                 <td style="font-family:monospace;font-size:12px">${row.container_name}</td>
             </tr>`;
         }).join("");
         document.getElementById("detail-total").textContent =
             `Gesamt: ${data.length} Sitzung(en) · ${fmtDuration(totalSec)}`;
     } catch(e) {
-        tbody.innerHTML = `<tr><td colspan='4' style='color:#f66;padding:10px'>${e.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan='5' style='color:#f66;padding:10px'>${e.message}</td></tr>`;
     }
 }
+
 
 // ── Container-Suche ─────────────────────────────────────────────
 async function searchContainer() {
@@ -1002,12 +1092,12 @@ async function searchContainer() {
     try {
         const data = await api(`/api/admin/logging/container/${encodeURIComponent(name)}`);
         if (!data.length) {
-            div.innerHTML = `<span style='color:#888;font-size:13px'>Kein Nutzer fuer <code>${name}</code> gefunden.</span>`;
+            div.innerHTML = `<span style='color:#888;font-size:13px'>Kein Nutzer für <code>${name}</code> gefunden.</span>`;
             return;
         }
         div.innerHTML = `<table class="log-table" style="margin-top:6px">
             <thead><tr><th>Nutzer</th><th style="text-align:right">Sitzungen</th><th style="text-align:right">Gesamtzeit</th></tr></thead>
-            <tbody>${data.map(r => `
+            <tbody>${data.map(r=>`
                 <tr>
                     <td><a href="#" onclick="openUserDetail(${r.user_id},'${r.username}');return false">${r.username}</a></td>
                     <td style="text-align:right">${r.session_count}</td>
@@ -1015,11 +1105,8 @@ async function searchContainer() {
                 </tr>`).join("")}
             </tbody>
         </table>`;
-    } catch(e) {
-        div.innerHTML = `<span style='color:#f66;font-size:13px'>${e.message}</span>`;
-    }
+    } catch(e) { div.innerHTML = `<span style='color:#f66;font-size:13px'>${e.message}</span>`; }
 }
-
 document.getElementById("container-search-input").addEventListener("keydown", e => {
     if (e.key === "Enter") searchContainer();
 });

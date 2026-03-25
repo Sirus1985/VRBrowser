@@ -1,13 +1,20 @@
 from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
+from typing import Optional
 from models import NewUser
 from database import (
     db_list_users, db_get_user_by_id, db_add_user, db_delete_user,
-    db_is_team_admin, db_get_session_by_user, db_delete_session
+    db_update_user, db_is_team_admin, db_get_session_by_user, db_delete_session
 )
 from auth import require_admin_or_teamadmin
 from docker_manager import docker_manager
 
 router = APIRouter(prefix="/api/users", tags=["users"])
+
+
+class UpdateUser(BaseModel):
+    team_id:  Optional[int] = None
+    password: Optional[str] = None
 
 
 @router.get("")
@@ -39,6 +46,27 @@ def add_user(n: NewUser, user: dict = Depends(require_admin_or_teamadmin)):
     return {"status": "ok"}
 
 
+@router.patch("/{userid}")
+def update_user(userid: int, body: UpdateUser, user: dict = Depends(require_admin_or_teamadmin)):
+    target = db_get_user_by_id(userid)
+    if not target:
+        raise HTTPException(404, "User not found")
+    if target["username"] == "admin":
+        raise HTTPException(400, "Cannot modify default admin")
+    if target["isadmin"]:
+        raise HTTPException(400, "Cannot modify Superadmin")
+    # Team-Admins dürfen nur User ihres eigenen Teams bearbeiten
+    if not user.get("admin"):
+        if not target["team_id"] or not db_is_team_admin(user["uid"], target["team_id"]):
+            raise HTTPException(403, "Not your team")
+        # Team-Admin darf kein anderes Team zuweisen als sein eigenes
+        if body.team_id is not None:
+            if not db_is_team_admin(user["uid"], body.team_id):
+                raise HTTPException(403, "Cannot assign to a team you don't administrate")
+    db_update_user(userid, team_id=body.team_id, password=body.password)
+    return {"status": "ok"}
+
+
 @router.delete("/{userid}")
 def delete_user(userid: int, user: dict = Depends(require_admin_or_teamadmin)):
     target = db_get_user_by_id(userid)
@@ -51,7 +79,6 @@ def delete_user(userid: int, user: dict = Depends(require_admin_or_teamadmin)):
     if not user.get("admin"):
         if not target["team_id"] or not db_is_team_admin(user["uid"], target["team_id"]):
             raise HTTPException(403, "Not your team")
-    # Session + Container sauber stoppen
     session = db_get_session_by_user(userid)
     if session:
         docker_manager.stop_container(session["container_name"])

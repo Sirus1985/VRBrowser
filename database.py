@@ -154,6 +154,21 @@ def db_delete_user(userid: int):
         conn.execute("DELETE FROM users WHERE id=?", (userid,))
         conn.commit()
 
+def db_update_user(userid: int, team_id: Optional[int] = None, password: Optional[str] = None):
+    """Aktualisiert Team-Zuweisung und/oder Passwort eines Users."""
+    with get_conn() as conn:
+        if password is not None:
+            conn.execute(
+                "UPDATE users SET password=? WHERE id=?",
+                (password, userid)
+            )
+        # team_id=None bedeutet explizit "kein Team" — daher eigene Abfrage
+        conn.execute(
+            "UPDATE users SET team_id=? WHERE id=?",
+            (team_id, userid)
+        )
+        conn.commit()
+
 
 def db_update_user_settings(user_id: int, auto_start_session: bool):
     with get_conn() as conn:
@@ -447,5 +462,26 @@ def db_search_session_log(
             {where_clause}
             ORDER BY started_at DESC
             LIMIT 500
+        """, params).fetchall()
+    return [dict(r) for r in rows]
+
+
+def db_team_ranking(period="all", year=None, month=None, week=None, day=None):
+    """Rangliste aller Teams nach Gesamtnutzungszeit.
+    User ohne Team werden unter 'Unbekannt' zusammengefasst."""
+    where, params = _build_time_filter(period, year, month, week, day)
+    with get_conn() as conn:
+        rows = conn.execute(f"""
+            SELECT
+                COALESCE(t.id, 0)            AS team_id,
+                COALESCE(t.name, 'Unbekannt') AS team_name,
+                COUNT(*)                      AS session_count,
+                SUM(sl.duration)              AS total_seconds
+            FROM session_log sl
+            LEFT JOIN users u ON sl.user_id = u.id
+            LEFT JOIN teams t ON u.team_id  = t.id
+            {where}
+            GROUP BY team_id
+            ORDER BY total_seconds DESC
         """, params).fetchall()
     return [dict(r) for r in rows]

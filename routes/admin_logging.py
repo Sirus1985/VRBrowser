@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, Query
 from typing import Optional
 from auth import require_admin
-from database import db_usage_ranking, db_user_session_log, db_find_user_by_container
+from database import (
+    db_usage_ranking, db_team_ranking,
+    db_user_session_log, db_find_user_by_container
+)
 
 router = APIRouter(prefix="/api/admin/logging", tags=["admin-logging"])
 
@@ -16,6 +19,18 @@ def usage_ranking(
     _user: dict = Depends(require_admin),
 ):
     return db_usage_ranking(period=period, year=year, month=month, week=week, day=day)
+
+
+@router.get("/ranking/teams")
+def team_ranking(
+    period: str = Query("all", description="all|day|week|month|year"),
+    year:   Optional[int] = None,
+    month:  Optional[int] = None,
+    week:   Optional[int] = None,
+    day:    Optional[str] = None,
+    _user: dict = Depends(require_admin),
+):
+    return db_team_ranking(period=period, year=year, month=month, week=week, day=day)
 
 
 @router.get("/user/{user_id}")
