@@ -1,7 +1,7 @@
 import docker
 import logging
 import os
-from config import PROFILES_BASE, PROXY_NETWORK, DOCKERHOST
+from config import PROFILES_BASE, PROXY_NETWORK, DOCKERHOST, BASE_DOMAIN, TRAEFIK_ENTRYPOINT
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,10 @@ def get_profile_path(username: str, container_def_id: int = None) -> str:
 
 def create_container(username: str, session_id: str, token: str,
                      container_def: dict) -> docker.models.containers.Container:
-    container_name = f"vbrowser_{username}_{session_id[:8]}"
+    
+    safe_username = "".join([c for c in username if c.isalnum()])
+    container_name = f"vbrowser-{safe_username}-{session_id[:8]}"
+    
     internal_port  = container_def.get("internal_port", 5800)
     def_id         = container_def.get("id")
     profile_path   = get_profile_path(username, def_id)
@@ -29,6 +32,12 @@ def create_container(username: str, session_id: str, token: str,
     env = {"TOKEN": token}
     for ev in container_def.get("env_vars", []):
         env[ev["key"]] = ev["value"]
+
+    host = f"{session_id[:8]}.{BASE_DOMAIN}" if BASE_DOMAIN else f"{session_id[:8]}.localhost"
+    
+    # Benutze kürzere, feste Router-Namen wie im alten Branch
+    router = f"vbrowser-{session_id[:8]}"
+    service = f"vbrowser-{session_id[:8]}"
 
     kwargs = {
         "image":          container_def["image"],
@@ -41,14 +50,26 @@ def create_container(username: str, session_id: str, token: str,
         "restart_policy": {"Name": container_def.get("restart_policy", "no")},
         "labels": {
             "traefik.enable": "true",
-            f"traefik.http.routers.{container_name}.rule":
-                f"PathPrefix(`/browser/{session_id}`)",
-            f"traefik.http.routers.{container_name}.middlewares":
-                f"{container_name}-strip",
-            f"traefik.http.middlewares.{container_name}-strip.stripprefix.prefixes":
-                f"/browser/{session_id}",
-            f"traefik.http.services.{container_name}.loadbalancer.server.port":
-                str(internal_port),
+            "traefik.docker.network": PROXY_NETWORK,
+            
+            # Haupt-Router für den Browser (höchste Prio = 10 wie im alten Code)
+            f"traefik.http.routers.{router}.rule": f"Host(`{host}`)",
+            f"traefik.http.routers.{router}.entrypoints": TRAEFIK_ENTRYPOINT,
+            f"traefik.http.routers.{router}.middlewares": "vbrowser-auth@file",
+            f"traefik.http.routers.{router}.priority": "10",
+            f"traefik.http.services.{service}.loadbalancer.server.port": str(internal_port),
+            
+            # Auth-/Cookie-Router (Prio 20, leitet zurück ans Backend)
+            f"traefik.http.routers.{router}-setcookie.rule": f"Host(`{host}`) && Path(`/auth/set-cookie`)",
+            f"traefik.http.routers.{router}-setcookie.entrypoints": TRAEFIK_ENTRYPOINT,
+            f"traefik.http.routers.{router}-setcookie.service": "vbrowser-backend@docker",
+            f"traefik.http.routers.{router}-setcookie.priority": "20",
+            
+            # Auth-Verify Router (Prio 20, leitet zurück ans Backend)
+            f"traefik.http.routers.{router}-verify.rule": f"Host(`{host}`) && Path(`/auth/verify`)",
+            f"traefik.http.routers.{router}-verify.entrypoints": TRAEFIK_ENTRYPOINT,
+            f"traefik.http.routers.{router}-verify.service": "vbrowser-backend@docker",
+            f"traefik.http.routers.{router}-verify.priority": "20",
         },
     }
 
@@ -81,42 +102,18 @@ def get_container_ip(container: docker.models.containers.Container) -> str | Non
 
 def stop_container(container_name: str):
     try:
-        container = client.containers.get(container_name)
-        container.stop(timeout=10)
-        container.remove()
-        logger.info("Container '%s' gestoppt und entfernt.", container_name)
+        c = client.containers.get(container_name)
+        c.remove(force=True)
+        logger.info("Container %s gestoppt und entfernt.", container_name)
     except docker.errors.NotFound:
-        logger.warning("Container '%s' nicht gefunden (bereits entfernt?).", container_name)
+        pass
     except Exception as e:
-        logger.error("Fehler beim Stoppen von '%s': %s", container_name, e)
+        logger.warning("Konnte Container %s nicht entfernen: %s", container_name, e)
 
 
 def container_exists(container_name: str) -> bool:
     try:
         client.containers.get(container_name)
         return True
-    except docker.errors.NotFound:
+    except:
         return False
-
-
-def get_container_stats(container_name: str) -> dict | None:
-    try:
-        container = client.containers.get(container_name)
-        stats      = container.stats(stream=False)
-        cpu_delta  = (stats["cpu_stats"]["cpu_usage"]["total_usage"]
-                      - stats["precpu_stats"]["cpu_usage"]["total_usage"])
-        sys_delta  = (stats["cpu_stats"]["system_cpu_usage"]
-                      - stats["precpu_stats"]["system_cpu_usage"])
-        num_cpus   = stats["cpu_stats"].get("online_cpus", 1)
-        cpu_pct    = (cpu_delta / sys_delta) * num_cpus * 100.0 if sys_delta > 0 else 0.0
-        mem_usage  = stats["memory_stats"].get("usage", 0)
-        mem_limit  = stats["memory_stats"].get("limit", 1)
-        return {
-            "cpu_percent":   round(cpu_pct, 1),
-            "mem_usage_mb":  round(mem_usage / 1024 / 1024, 1),
-            "mem_limit_mb":  round(mem_limit / 1024 / 1024, 1),
-            "mem_percent":   round((mem_usage / mem_limit) * 100.0, 1),
-        }
-    except Exception as e:
-        logger.warning("Stats für '%s' nicht verfügbar: %s", container_name, e)
-        return None

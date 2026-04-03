@@ -5,7 +5,9 @@ from database import (
     db_get_timed_out_sessions,
     db_list_sessions,
     db_delete_session,
-    db_create_session
+    db_create_session,
+    db_update_heartbeat,        # <-- NEU 
+    db_get_session_by_token     # <-- NEU
 )
 # KORREKTUR: Wir importieren stop_container und client direkt
 from docker_manager import stop_container, client
@@ -15,6 +17,12 @@ logger = logging.getLogger(__name__)
 def register_session(session_id: str, user_id: int, username: str, container_name: str, token: str, container_ip: str = None, image: str = None):
     # Jetzt mit dem image Parameter!
     db_create_session(session_id, user_id, username, container_name, token, container_ip, image)
+
+def update_heartbeat(session_id: str):
+    db_update_heartbeat(session_id)
+
+def validate_token(token: str) -> bool:
+    return db_get_session_by_token(token) is not None
 
 def cleanup_loop():
     logger.info("Cleanup-Loop gestartet (Timeout=%ss, MaxDuration=%ss)", SESSION_TIMEOUT, MAX_SESSION_DURATION)
