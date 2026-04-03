@@ -154,6 +154,7 @@ def patch_user_settings(payload: dict, user: dict = Depends(get_current_user)):
 
 
 @router.get("/api/sessions")
+@router.get("/api/session/list")
 def list_sessions(user: dict = Depends(get_current_user)):
     if user.get("isadmin"):
         return db_list_sessions()

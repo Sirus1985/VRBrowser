@@ -1,9 +1,12 @@
 import docker
 import logging
 import os
-from config import PROFILES_BASE, PROXY_NETWORK, DOCKERHOST, BASE_DOMAIN, TRAEFIK_ENTRYPOINT
+from config import PROFILES_BASE, PROXY_NETWORK, DOCKERHOST, BASE_DOMAIN
 
 logger = logging.getLogger(__name__)
+
+# Fallback auf 'web' (Port 80), da Cloudflare den Traffic auf Port 80 an Traefik reicht
+ENTRYPOINT = os.getenv("TRAEFIK_ENTRYPOINT", "web")
 
 try:
     client = docker.DockerClient(base_url=DOCKERHOST)
@@ -35,7 +38,6 @@ def create_container(username: str, session_id: str, token: str,
 
     host = f"{session_id[:8]}.{BASE_DOMAIN}" if BASE_DOMAIN else f"{session_id[:8]}.localhost"
     
-    # Benutze kürzere, feste Router-Namen wie im alten Branch
     router = f"vbrowser-{session_id[:8]}"
     service = f"vbrowser-{session_id[:8]}"
 
@@ -52,22 +54,23 @@ def create_container(username: str, session_id: str, token: str,
             "traefik.enable": "true",
             "traefik.docker.network": PROXY_NETWORK,
             
-            # Haupt-Router für den Browser (höchste Prio = 10 wie im alten Code)
+            # 1) Haupt-Router für den Browser
             f"traefik.http.routers.{router}.rule": f"Host(`{host}`)",
-            f"traefik.http.routers.{router}.entrypoints": TRAEFIK_ENTRYPOINT,
+            f"traefik.http.routers.{router}.entrypoints": ENTRYPOINT,
+            # WICHTIG: Dies zielt auf die Middleware aus der Datei traefik-dynamic.yml
             f"traefik.http.routers.{router}.middlewares": "vbrowser-auth@file",
             f"traefik.http.routers.{router}.priority": "10",
             f"traefik.http.services.{service}.loadbalancer.server.port": str(internal_port),
             
-            # Auth-/Cookie-Router (Prio 20, leitet zurück ans Backend)
+            # 2) Auth-/Cookie-Router (wichtig für den Redirect im Frontend)
             f"traefik.http.routers.{router}-setcookie.rule": f"Host(`{host}`) && Path(`/auth/set-cookie`)",
-            f"traefik.http.routers.{router}-setcookie.entrypoints": TRAEFIK_ENTRYPOINT,
+            f"traefik.http.routers.{router}-setcookie.entrypoints": ENTRYPOINT,
             f"traefik.http.routers.{router}-setcookie.service": "vbrowser-backend@docker",
             f"traefik.http.routers.{router}-setcookie.priority": "20",
             
-            # Auth-Verify Router (Prio 20, leitet zurück ans Backend)
+            # 3) Auth-Verify Router (wird von der Middleware aufgerufen)
             f"traefik.http.routers.{router}-verify.rule": f"Host(`{host}`) && Path(`/auth/verify`)",
-            f"traefik.http.routers.{router}-verify.entrypoints": TRAEFIK_ENTRYPOINT,
+            f"traefik.http.routers.{router}-verify.entrypoints": ENTRYPOINT,
             f"traefik.http.routers.{router}-verify.service": "vbrowser-backend@docker",
             f"traefik.http.routers.{router}-verify.priority": "20",
         },

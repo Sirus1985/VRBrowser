@@ -1,10 +1,12 @@
 import time
 import jwt
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from config import SECRETKEY
 
-security = HTTPBearer()
+# auto_error=False sorgt dafür, dass FastAPI nicht sofort abbricht, 
+# wenn der Authorization-Header fehlt (da wir stattdessen das Cookie prüfen)
+security = HTTPBearer(auto_error=False)
 TOKEN_TTL = 3600
 
 
@@ -20,9 +22,19 @@ def create_token(user: dict, admin_teams: list) -> str:
     return jwt.encode(payload, SECRETKEY, algorithm="HS256")
 
 
-def get_current_user(creds: HTTPAuthorizationCredentials = Depends(security)):
+def get_current_user(request: Request, creds: HTTPAuthorizationCredentials = Depends(security)):
+    # 1. Token aus Header auslesen (für API-Requests aus dem Frontend)
+    token = creds.credentials if creds else None
+    
+    # 2. Token aus Cookie auslesen (für Traefik ForwardAuth)
+    if not token:
+        token = request.cookies.get("vbrowser_token")
+        
+    if not token:
+        raise HTTPException(401, "Missing authentication token")
+
     try:
-        return jwt.decode(creds.credentials, SECRETKEY, algorithms=["HS256"])
+        return jwt.decode(token, SECRETKEY, algorithms=["HS256"])
     except Exception:
         raise HTTPException(401, "Invalid or expired token")
 

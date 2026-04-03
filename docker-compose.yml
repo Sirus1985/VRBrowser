@@ -77,7 +77,10 @@ services:
       - traefik.http.routers.vbrowser-auth.entrypoints=web
       - traefik.http.routers.vbrowser-auth.service=vbrowser-backend
       - traefik.http.routers.vbrowser-auth.priority=10
-
+      # Definiert die Auth-Middleware im Docker-Provider
+      - "traefik.http.middlewares.vbrowser-auth.forwardauth.address=http://vbrowser-backend:8080/auth/verify"
+      - "traefik.http.middlewares.vbrowser-auth.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.vbrowser-auth.forwardauth.authResponseHeaders=X-Forwarded-User"
 
   cloudflared:
     image: cloudflare/cloudflared:latest
