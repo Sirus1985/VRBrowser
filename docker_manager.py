@@ -1,142 +1,122 @@
+import docker
 import logging
 import os
-import shutil
-from fastapi import HTTPException
-from docker import DockerClient
-from config import (
-    DOCKERHOST, DOCKERIMAGE, BASE_DOMAIN, PROXY_NETWORK,
-    TRAEFIK_ENTRYPOINT, USE_TLS, CERT_RESOLVER, PROFILES_BASE, BROWSER_DNS 
-)
+from config import PROFILES_BASE, PROXY_NETWORK, DOCKERHOST
 
-logger = logging.getLogger("vbrowser")
+logger = logging.getLogger(__name__)
 
-
-# ──────────────────────────────────────────────
-# Seccomp-Hilfsfunktionen
-# ──────────────────────────────────────────────
-
-def _parse_csv(value: str) -> list[str]:
-    return [item.strip().lower() for item in str(value).split(",") if item.strip()]
-
-def _env_bool(value: str) -> bool:
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
-def build_security_opt(image_name: str) -> list[str] | None:
-    mode    = os.getenv("BROWSER_SECCOMP_MODE", "off").strip().lower()
-    profile = os.getenv("BROWSER_SECCOMP_PROFILE", "/opt/vbrowser/seccomp_profile.json").strip()
-    allowed = _parse_csv(os.getenv("BROWSER_SECCOMP_IMAGES", "jlesage/firefox"))
-    all_img = _env_bool(os.getenv("BROWSER_SECCOMP_ALL_IMAGES", "false"))
-
-    image_base = image_name.strip().lower().split(":")[0]
-    if not all_img and image_base not in allowed:
-        return None
-
-    if mode in {"", "off", "none", "false", "0"}:
-        return None
-
-    if mode == "unconfined":
-        return ["seccomp:unconfined"]
-
-    if mode == "profile":
-        if not os.path.isfile(profile):
-            logger.warning(f"Seccomp-Profil nicht gefunden: {profile}")
-            return None
-        return [f"seccomp:{profile}"]  # ← : statt =
-
-    raise ValueError(f"Ungültiger BROWSER_SECCOMP_MODE: '{mode}'")
+try:
+    client = docker.DockerClient(base_url=DOCKERHOST)
+except Exception as e:
+    logger.warning("Docker-Client-Init fehlgeschlagen: %s", e)
+    client = docker.from_env()
 
 
-
-# ──────────────────────────────────────────────
-# DockerManager
-# ──────────────────────────────────────────────
-
-class DockerManager:
-    def __init__(self):
-        self.client = DockerClient(base_url=DOCKERHOST)
-
-    def get_profile_path(self, username: str) -> str:
-        path = os.path.join(PROFILES_BASE, username)
-        os.makedirs(path, exist_ok=True)
-        return path
-
-    def reset_profile(self, username: str):
-        path = os.path.join(PROFILES_BASE, username)
-        if os.path.exists(path):
-            shutil.rmtree(path)
-            logger.info(f"Profile reset for user {username}")
-        else:
-            logger.info(f"No profile found for user {username}, nothing to reset")
-
-    def stop_container(self, container_name: str):
-        try:
-            c = self.client.containers.get(container_name)
-            c.remove(force=True)
-            logger.info(f"Removed container {container_name}")
-        except Exception as e:
-            logger.warning(f"Could not remove container {container_name}: {e}")
-
-    def is_container_running(self, container_name: str) -> bool:
-        try:
-            c = self.client.containers.get(container_name)
-            return c.status == "running"
-        except Exception:
-            return False
+def get_profile_path(username: str, container_def_id: int = None) -> str:
+    suffix = f"_{container_def_id}" if container_def_id else "_default"
+    path = os.path.join(PROFILES_BASE, f"{username}{suffix}")
+    os.makedirs(path, exist_ok=True)
+    return path
 
 
-    def create_container(self, userid: int, username: str, container_name: str, host_id: str) -> str:
-        self.stop_container(container_name)
-        profile_path = self.get_profile_path(username)
-        host    = f"{host_id}.{BASE_DOMAIN}"
-        router  = f"vbrowser-user-{userid}"
-        service = f"vbrowser-user-{userid}"
+def create_container(username: str, session_id: str, token: str,
+                     container_def: dict) -> docker.models.containers.Container:
+    container_name = f"vbrowser_{username}_{session_id[:8]}"
+    internal_port  = container_def.get("internal_port", 5800)
+    def_id         = container_def.get("id")
+    profile_path   = get_profile_path(username, def_id)
 
-        labels = {
+    env = {"TOKEN": token}
+    for ev in container_def.get("env_vars", []):
+        env[ev["key"]] = ev["value"]
+
+    kwargs = {
+        "image":          container_def["image"],
+        "name":           container_name,
+        "detach":         True,
+        "environment":    env,
+        "volumes":        {profile_path: {"bind": "/config", "mode": "rw"}},
+        "shm_size":       container_def.get("shm_size", "2g"),
+        "network":        PROXY_NETWORK,
+        "restart_policy": {"Name": container_def.get("restart_policy", "no")},
+        "labels": {
             "traefik.enable": "true",
-            f"traefik.http.routers.{router}.rule": f"Host(`{host}`)",
-            f"traefik.http.routers.{router}.entrypoints": TRAEFIK_ENTRYPOINT,
-            f"traefik.http.routers.{router}.middlewares": "vbrowser-auth@file",
-            f"traefik.http.routers.{router}.priority": "10",
-            f"traefik.http.services.{service}.loadbalancer.server.port": "5800",
-            f"traefik.http.routers.{router}-setcookie.rule": f"Host(`{host}`) && Path(`/auth/set-cookie`)",
-            f"traefik.http.routers.{router}-setcookie.entrypoints": TRAEFIK_ENTRYPOINT,
-            f"traefik.http.routers.{router}-setcookie.service": "vbrowser-backend@docker",
-            f"traefik.http.routers.{router}-setcookie.priority": "20",
+            f"traefik.http.routers.{container_name}.rule":
+                f"PathPrefix(`/browser/{session_id}`)",
+            f"traefik.http.routers.{container_name}.middlewares":
+                f"{container_name}-strip",
+            f"traefik.http.middlewares.{container_name}-strip.stripprefix.prefixes":
+                f"/browser/{session_id}",
+            f"traefik.http.services.{container_name}.loadbalancer.server.port":
+                str(internal_port),
+        },
+    }
+
+    cpu_limit = container_def.get("cpu_limit")
+    if cpu_limit:
+        kwargs["nano_cpus"] = int(float(cpu_limit) * 1e9)
+
+    mem_limit = container_def.get("mem_limit")
+    if mem_limit:
+        kwargs["mem_limit"] = mem_limit
+
+    logger.info("Starte Container '%s' mit Image '%s'", container_name, container_def["image"])
+    return client.containers.run(**kwargs)
+
+
+def get_container_ip(container: docker.models.containers.Container) -> str | None:
+    try:
+        container.reload()
+        networks = container.attrs.get("NetworkSettings", {}).get("Networks", {})
+        if PROXY_NETWORK in networks:
+            return networks[PROXY_NETWORK].get("IPAddress")
+        for net_info in networks.values():
+            ip = net_info.get("IPAddress")
+            if ip:
+                return ip
+    except Exception as e:
+        logger.warning("Fehler beim Abrufen der Container-IP: %s", e)
+    return None
+
+
+def stop_container(container_name: str):
+    try:
+        container = client.containers.get(container_name)
+        container.stop(timeout=10)
+        container.remove()
+        logger.info("Container '%s' gestoppt und entfernt.", container_name)
+    except docker.errors.NotFound:
+        logger.warning("Container '%s' nicht gefunden (bereits entfernt?).", container_name)
+    except Exception as e:
+        logger.error("Fehler beim Stoppen von '%s': %s", container_name, e)
+
+
+def container_exists(container_name: str) -> bool:
+    try:
+        client.containers.get(container_name)
+        return True
+    except docker.errors.NotFound:
+        return False
+
+
+def get_container_stats(container_name: str) -> dict | None:
+    try:
+        container = client.containers.get(container_name)
+        stats      = container.stats(stream=False)
+        cpu_delta  = (stats["cpu_stats"]["cpu_usage"]["total_usage"]
+                      - stats["precpu_stats"]["cpu_usage"]["total_usage"])
+        sys_delta  = (stats["cpu_stats"]["system_cpu_usage"]
+                      - stats["precpu_stats"]["system_cpu_usage"])
+        num_cpus   = stats["cpu_stats"].get("online_cpus", 1)
+        cpu_pct    = (cpu_delta / sys_delta) * num_cpus * 100.0 if sys_delta > 0 else 0.0
+        mem_usage  = stats["memory_stats"].get("usage", 0)
+        mem_limit  = stats["memory_stats"].get("limit", 1)
+        return {
+            "cpu_percent":   round(cpu_pct, 1),
+            "mem_usage_mb":  round(mem_usage / 1024 / 1024, 1),
+            "mem_limit_mb":  round(mem_limit / 1024 / 1024, 1),
+            "mem_percent":   round((mem_usage / mem_limit) * 100.0, 1),
         }
-
-        # Run-Parameter zusammenbauen
-        run_kwargs = {
-            "image":        DOCKERIMAGE,
-            "name":         container_name,
-            "detach":       True,
-            "shm_size":     "2g",
-            "network":      PROXY_NETWORK,
-            "labels":       labels,
-            "volumes":      {profile_path: {"bind": "/config", "mode": "rw"}},
-            "environment":  {"KEEP_APP_RUNNING": "1", "FF_PREF_network.trr.mode": "5", "FF_OPEN_URL": "https://google.com"},
-        }
-
-        # Seccomp nur setzen wenn konfiguriert und Image passt
-        security_opt = build_security_opt(DOCKERIMAGE)
-        if security_opt:
-            run_kwargs["security_opt"] = security_opt
-            logger.info(f"Seccomp gesetzt für {DOCKERIMAGE}: {security_opt}")
-
-        # DNS nur setzen wenn BROWSER_DNS in .env konfiguriert  ← NEU
-        if BROWSER_DNS:
-            run_kwargs["dns"] = BROWSER_DNS
-            logger.info(f"Custom DNS für Browser-Container: {BROWSER_DNS}")     
-
-        try:
-            self.client.containers.run(**run_kwargs)
-            # Container-IP ermitteln und zurückgeben
-            c = self.client.containers.get(container_name)
-            ip = c.attrs["NetworkSettings"]["Networks"].get(PROXY_NETWORK, {}).get("IPAddress")
-            return f"https://{host}/", ip   # ← IP mitgeben
-        except Exception as e:
-            logger.error(f"Container start failed: {e}")
-            raise HTTPException(500, f"Container start failed: {e}")
-
-   
-
-docker_manager = DockerManager()
+    except Exception as e:
+        logger.warning("Stats für '%s' nicht verfügbar: %s", container_name, e)
+        return None

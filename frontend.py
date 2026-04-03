@@ -1,1117 +1,1359 @@
 def get_html() -> str:
     return """<!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>VBrowser</title>
-    <style>
-        :root { --bg:#1e1e1e; --panel:#252526; --border:#333; --accent:#0e639c; --text:#ccc; --green:#2da44e; --sidebar-w:320px; --sidebar-admin-w:580px; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VBrowser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&display=swap" rel="stylesheet">
+<style>
+/* ── Design Tokens ─────────────────────────────────────── */
+:root {
+  --font-body: 'Inter', system-ui, sans-serif;
+  --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+  --text-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+  --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+  --text-lg: clamp(1.125rem, 1rem + 0.75vw, 1.5rem);
+  --text-xl: clamp(1.5rem, 1.2rem + 1.25vw, 2.25rem);
+  --space-1:.25rem;--space-2:.5rem;--space-3:.75rem;--space-4:1rem;
+  --space-5:1.25rem;--space-6:1.5rem;--space-8:2rem;--space-10:2.5rem;
+  --space-12:3rem;--space-16:4rem;
+  --radius-sm:.375rem;--radius-md:.5rem;--radius-lg:.75rem;
+  --radius-xl:1rem;--radius-full:9999px;
+  --transition: 180ms cubic-bezier(0.16,1,0.3,1);
+}
+[data-theme="light"] {
+  --bg:#f7f6f2;--surface:#f9f8f5;--surface-2:#fbfbf9;
+  --surface-offset:#f3f0ec;--surface-dynamic:#e6e4df;
+  --border:#d4d1ca;--divider:#dcd9d5;
+  --text:#28251d;--text-muted:#7a7974;--text-faint:#bab9b4;--text-inv:#f9f8f4;
+  --primary:#01696f;--primary-h:#0c4e54;--primary-hl:#cedcd8;
+  --success:#437a22;--success-hl:#d4dfcc;
+  --error:#a12c7b;--error-hl:#e0ced7;
+  --warning:#964219;--warning-hl:#ddcfc6;
+  --shadow-sm:0 1px 2px oklch(0.2 0.01 80/0.06);
+  --shadow-md:0 4px 12px oklch(0.2 0.01 80/0.08);
+  --shadow-lg:0 12px 32px oklch(0.2 0.01 80/0.12);
+}
+[data-theme="dark"] {
+  --bg:#171614;--surface:#1c1b19;--surface-2:#201f1d;
+  --surface-offset:#1d1c1a;--surface-dynamic:#2d2c2a;
+  --border:#393836;--divider:#262523;
+  --text:#cdccca;--text-muted:#797876;--text-faint:#5a5957;--text-inv:#2b2a28;
+  --primary:#4f98a3;--primary-h:#227f8b;--primary-hl:#313b3b;
+  --success:#6daa45;--success-hl:#3a4435;
+  --error:#d163a7;--error-hl:#4c3d46;
+  --warning:#bb653b;--warning-hl:#564942;
+  --shadow-sm:0 1px 2px oklch(0 0 0/0.2);
+  --shadow-md:0 4px 12px oklch(0 0 0/0.3);
+  --shadow-lg:0 12px 32px oklch(0 0 0/0.4);
+}
 
-        body.light-mode { --bg:#f0f0f0; --panel:#ffffff; --border:#ccc; --text:#222; }
-        body.light-mode input, body.light-mode select { background:#fff; border-color:#bbb; color:#222; }
-        body.light-mode input.search { background:#f5f5f5; border-color:#bbb; }
-        body.light-mode .section   { background:#e8e8e8; border-color:#ccc; }
-        body.light-mode .item      { background:#ddd; }
-        body.light-mode .tab       { background:#ddd; border-color:#bbb; color:#333; }
-        body.light-mode .session-item { background:#ddd; }
-        body.light-mode .session-item .s-meta { color:#555; }
-        body.light-mode .log-table th { background:#ccc; color:#222; }
-        body.light-mode .log-table td { border-bottom-color:#ccc; color:#222; }
-        body.light-mode .log-table tr:hover td { background:#e0e0e0; }
-        body.light-mode .log-table a { color:#0e639c; }
-        body.light-mode .modal-box { background:#f5f5f5; color:#222; border-color:#ccc; }
-        body.light-mode button.secondary { background:#d0d0d0; border-color:#bbb; color:#222; }
-        body.light-mode h3 { color:#111; }
-        body.light-mode h4 { color:#555; }
-        body.light-mode hr { border-top-color:#ccc; }
-        body.light-mode #placeholder { color:#999; }
-        body.light-mode #content { background:#e0e0e0; }
-        body.light-mode .edit-inline-box { background:#fff; border-color:#bbb; }
-        body.light-mode .edit-inline-box input, body.light-mode .edit-inline-box select { background:#f5f5f5; }
+/* ── Reset ─────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;scroll-behavior:smooth}
+body{min-height:100dvh;font-family:var(--font-body);font-size:var(--text-base);
+  color:var(--text);background:var(--bg);line-height:1.6}
+input,button,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:none}
+table{border-collapse:collapse;width:100%}
+a,button,[role="button"],input,select,textarea{
+  transition:color var(--transition),background var(--transition),
+    border-color var(--transition),box-shadow var(--transition)}
+:focus-visible{outline:2px solid var(--primary);outline-offset:3px;border-radius:var(--radius-sm)}
 
-        * { box-sizing:border-box; }
-        body { background:var(--bg); color:var(--text); font-family:-apple-system,system-ui,sans-serif; display:flex; height:100vh; margin:0; overflow:hidden; }
+/* ── Layout ────────────────────────────────────────────── */
+.app{display:flex;flex-direction:column;min-height:100dvh}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:var(--space-3) var(--space-6);
+  background:var(--surface);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:100;
+  box-shadow:var(--shadow-sm)
+}
+.topbar-logo{display:flex;align-items:center;gap:var(--space-3);font-weight:600;font-size:var(--text-base)}
+.topbar-right{display:flex;align-items:center;gap:var(--space-4)}
+.main{flex:1;padding:var(--space-8) var(--space-6);max-width:1280px;margin-inline:auto;width:100%}
 
-        #sidebar {
-            width:var(--sidebar-w); min-width:var(--sidebar-w);
-            background:var(--panel); padding:20px;
-            display:flex; flex-direction:column; gap:10px;
-            border-right:1px solid var(--border);
-            overflow-y:auto; overflow-x:hidden;
-            transition:min-width 0.3s ease, width 0.3s ease, padding 0.25s ease, opacity 0.2s ease;
-        }
-        body.admin-expanded #sidebar { width:var(--sidebar-admin-w); min-width:var(--sidebar-admin-w); }
-        body.sidebar-collapsed #sidebar {
-            width:0 !important; min-width:0 !important; padding:0 !important;
-            opacity:0 !important; pointer-events:none !important; border-right:none !important;
-        }
+/* ── Buttons ───────────────────────────────────────────── */
+.btn{
+  display:inline-flex;align-items:center;gap:var(--space-2);
+  padding:var(--space-2) var(--space-4);border-radius:var(--radius-md);
+  font-size:var(--text-sm);font-weight:500;white-space:nowrap;
+  border:1px solid transparent;min-height:36px
+}
+.btn-primary{background:var(--primary);color:var(--text-inv);border-color:var(--primary)}
+.btn-primary:hover{background:var(--primary-h);border-color:var(--primary-h)}
+.btn-secondary{background:transparent;color:var(--text);border-color:var(--border)}
+.btn-secondary:hover{background:var(--surface-offset)}
+.btn-ghost{background:transparent;color:var(--text-muted)}
+.btn-ghost:hover{background:var(--surface-offset);color:var(--text)}
+.btn-danger{background:var(--error);color:var(--text-inv);border-color:var(--error)}
+.btn-danger:hover{filter:brightness(1.1)}
+.btn-sm{padding:var(--space-1) var(--space-3);font-size:var(--text-xs);min-height:28px}
+.btn-icon{padding:var(--space-2);min-height:36px;width:36px;justify-content:center;border-radius:var(--radius-md)}
 
-        #sidebarToggle {
-            position:absolute; left:0; top:50%; transform:translateY(-50%);
-            z-index:100; width:18px; height:48px;
-            background:var(--panel); border:1px solid var(--border);
-            border-left:none; border-radius:0 6px 6px 0;
-            cursor:pointer; display:flex; align-items:center; justify-content:center;
-            color:#888; font-size:10px; padding:0;
-            transition:left 0.25s ease, background 0.15s;
-        }
-        #sidebarToggle:hover { background:#333; color:#fff; }
+/* ── Cards ─────────────────────────────────────────────── */
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:var(--space-6);
+  box-shadow:var(--shadow-sm)
+}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));gap:var(--space-4)}
 
-        #content { flex:1; position:relative; background:#111; }
-        iframe { width:100%; height:100%; border:none; display:none; }
-        #placeholder { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#555; font-size:15px; }
+/* Container-Kachel (Nutzer) */
+.container-card{
+  background:var(--surface);border:2px solid var(--border);
+  border-radius:var(--radius-lg);padding:var(--space-6);
+  cursor:pointer;transition:border-color var(--transition),box-shadow var(--transition);
+  position:relative
+}
+.container-card:hover{border-color:var(--primary);box-shadow:var(--shadow-md)}
+.container-card.selected{border-color:var(--primary);background:color-mix(in oklch,var(--primary) 6%,var(--surface))}
+.container-card .default-badge{
+  position:absolute;top:var(--space-3);right:var(--space-3);
+  background:var(--primary);color:var(--text-inv);
+  font-size:var(--text-xs);padding:2px var(--space-2);
+  border-radius:var(--radius-full);font-weight:600
+}
+.container-card h3{font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-1)}
+.container-card p{font-size:var(--text-sm);color:var(--text-muted);margin-bottom:var(--space-3)}
+.container-card .meta{display:flex;gap:var(--space-2);flex-wrap:wrap}
+.tag{font-size:var(--text-xs);padding:2px var(--space-2);border-radius:var(--radius-full);
+  background:var(--surface-offset);color:var(--text-muted);border:1px solid var(--border)}
 
-        h3 { margin:0 0 4px 0; color:#fff; font-weight:600; }
-        h4 { margin:0 0 6px 0; color:#aaa; font-size:12px; text-transform:uppercase; letter-spacing:1px; }
-        input, select { padding:9px; border-radius:6px; border:1px solid #555; background:#3c3c3c; color:#fff; width:100%; font-size:14px; }
-        input.search { background:#2a2a2a; border-color:#444; padding-left:30px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%23888' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.415l-3.868-3.833zm-5.242 1.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:10px center; }
-        button { padding:9px; border-radius:6px; border:none; cursor:pointer; background:var(--accent); color:#fff; width:100%; font-size:14px; }
-        button.green { background:var(--green); }
-        button.secondary { background:#3a3d41; border:1px solid #555; }
-        button.danger { background:#8b2010; }
-        button.reset { background:#c0392b; }
-        button.small { padding:4px 8px; font-size:12px; width:auto; }
-        button.warn  { background:#b07d00; }
-        button:disabled { opacity:0.4; cursor:not-allowed; }
-        .hidden { display:none !important; }
-        .section { background:#2d2d2d; padding:12px; border:1px solid #444; border-radius:8px; display:flex; flex-direction:column; gap:8px; }
-        .item { display:flex; justify-content:space-between; align-items:center; background:#333; padding:7px 10px; border-radius:6px; font-size:13px; gap:6px; flex-wrap:wrap; }
-        .item-left { display:flex; flex-direction:column; gap:3px; flex:1; min-width:0; }
-        .item-name { font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .item-badges { display:flex; flex-wrap:wrap; gap:3px; }
-        .item-actions { display:flex; gap:4px; flex-shrink:0; }
-        .badge { padding:2px 7px; border-radius:999px; font-size:11px; font-weight:600; white-space:nowrap; }
-        .badge.admin { background:#c0392b; color:#fff; }
-        .badge.teamadmin { background:#dda108; color:#000; }
-        .badge.team { background:#1a6b3c; color:#fff; }
-        .badge.active { background:#1a6b3c; color:#fff; }
-        hr { border:none; border-top:1px solid #444; margin:4px 0; }
-        #status { margin-top:auto; font-size:12px; color:#888; border-top:1px solid var(--border); padding-top:10px; }
-        label { display:flex; gap:8px; align-items:center; font-size:13px; }
-        input[type=checkbox] { width:auto; }
-        .tabs { display:flex; gap:4px; flex-wrap:wrap; }
-        .tab { flex:1; padding:7px; border-radius:6px; border:1px solid #555; background:#3a3d41; color:#ccc; cursor:pointer; font-size:13px; text-align:center; }
-        .tab.active { background:var(--accent); border-color:var(--accent); color:#fff; }
-        .tab-content { display:none; flex-direction:column; gap:8px; }
-        .tab-content.active { display:flex; }
-        .filter-row { display:flex; gap:6px; }
-        .filter-row input, .filter-row select { flex:1; }
-        .count { font-size:11px; color:#666; text-align:right; }
-        .searchable { display:flex; flex-direction:column; gap:4px; }
-        .searchable select { max-height:120px; }
-        .session-item { display:flex; flex-direction:column; gap:3px; background:#333; padding:8px 10px; border-radius:6px; font-size:12px; }
-        .session-item .s-user { font-weight:600; color:#fff; font-size:13px; }
-        .session-item .s-meta { color:#888; }
-        .settings-hint { font-size:11px; color:#666; margin-top:-4px; }
+/* ── Tabs ──────────────────────────────────────────────── */
+.tabs{display:flex;gap:var(--space-1);border-bottom:1px solid var(--border);margin-bottom:var(--space-6)}
+.tab-btn{
+  padding:var(--space-2) var(--space-4);font-size:var(--text-sm);font-weight:500;
+  color:var(--text-muted);border-bottom:2px solid transparent;
+  background:none;border-radius:0;margin-bottom:-1px;
+  transition:color var(--transition),border-color var(--transition)
+}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--primary);border-bottom-color:var(--primary)}
+.tab-panel{display:none}.tab-panel.active{display:block}
 
-        /* ── Inline-Edit Box ───────────────────────────────────── */
-        .edit-inline-box {
-            width:100%; background:#2a2a2a; border:1px solid #555;
-            border-radius:6px; padding:8px; margin-top:4px;
-            display:flex; flex-direction:column; gap:6px;
-        }
-        .edit-inline-box .edit-row { display:flex; gap:6px; align-items:center; }
-        .edit-inline-box .edit-row input,
-        .edit-inline-box .edit-row select { flex:1; padding:6px 8px; font-size:12px; }
-        .edit-inline-box .edit-row button { width:auto; padding:5px 10px; font-size:12px; }
-        .pw-wrap { position:relative; width:100%; }
-        .pw-wrap input { padding-right:34px; }
-        .pw-eye {
-            position:absolute; right:8px; top:50%; transform:translateY(-50%);
-            background:none; border:none; color:#888; cursor:pointer;
-            font-size:14px; padding:0; width:auto; line-height:1;
-        }
-        .pw-eye:hover { color:#fff; }
+/* ── Tabelle ───────────────────────────────────────────── */
+.table-wrap{overflow-x:auto;border-radius:var(--radius-lg);border:1px solid var(--border)}
+table th,table td{padding:var(--space-3) var(--space-4);text-align:left;font-size:var(--text-sm);
+  border-bottom:1px solid var(--divider)}
+table th{background:var(--surface-offset);font-weight:600;color:var(--text-muted);font-size:var(--text-xs);
+  text-transform:uppercase;letter-spacing:0.05em}
+table tr:last-child td{border-bottom:none}
+table tbody tr:hover{background:var(--surface-offset)}
 
-        /* ── Ladebalken ────────────────────────────────────────── */
-        #startProgress {
-            display:none; position:absolute;
-            bottom:0; left:0; right:0; height:3px;
-            background:#1a1a1a; z-index:60;
-        }
-        #startProgressBar {
-            height:100%; width:0%;
-            background:var(--green);
-            transition:width 0.4s ease;
-        }
+/* ── Forms ─────────────────────────────────────────────── */
+.form-group{display:flex;flex-direction:column;gap:var(--space-1);margin-bottom:var(--space-4)}
+.form-group label{font-size:var(--text-sm);font-weight:500;color:var(--text-muted)}
+.form-control{
+  width:100%;padding:var(--space-2) var(--space-3);
+  background:var(--surface-2);border:1px solid var(--border);
+  border-radius:var(--radius-md);font-size:var(--text-sm);color:var(--text)
+}
+.form-control:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in oklch,var(--primary) 20%,transparent)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)}
+.form-hint{font-size:var(--text-xs);color:var(--text-faint)}
 
-        /* ── Logging Tab ───────────────────────────────────────── */
-        .log-table { width:100%; border-collapse:collapse; font-size:13px; }
-        .log-table th { background:#333; color:#fff; padding:6px 10px; text-align:left; position:sticky; top:0; }
-        .log-table td { padding:6px 10px; border-bottom:1px solid #3a3a3a; }
-        .log-table tr:hover td { background:#2a2a2a; }
-        .log-table a { color:#7eb8f7; text-decoration:none; }
-        .log-table a:hover { text-decoration:underline; }
-        .log-filter-row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
-        .log-filter-row input, .log-filter-row select { flex:1; min-width:80px; }
-        .log-filter-row button { width:auto; padding:7px 14px; }
-        .rank-toggle { display:flex; gap:4px; margin-bottom:4px; }
-        .rank-toggle button { flex:1; padding:6px; font-size:12px; }
-        .rank-toggle button.active { background:var(--accent); border-color:var(--accent); }
+/* ── Modal ─────────────────────────────────────────────── */
+.modal-backdrop{
+  display:none;position:fixed;inset:0;background:oklch(0 0 0/0.5);
+  z-index:200;align-items:center;justify-content:center;padding:var(--space-4)
+}
+.modal-backdrop.open{display:flex}
+.modal{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-xl);padding:var(--space-8);
+  max-width:640px;width:100%;max-height:90vh;overflow-y:auto;
+  box-shadow:var(--shadow-lg)
+}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-6)}
+.modal-header h2{font-size:var(--text-lg);font-weight:600}
+.modal-footer{display:flex;justify-content:flex-end;gap:var(--space-3);margin-top:var(--space-6);
+  padding-top:var(--space-6);border-top:1px solid var(--divider)}
 
-        /* ── Detail Modal ──────────────────────────────────────── */
-        #user-detail-modal {
-            display:none; position:fixed; inset:0;
-            background:rgba(0,0,0,0.75); z-index:9999; overflow-y:auto;
-        }
-        .modal-box {
-            background:#1e1e1e; color:#eee; margin:40px auto;
-            max-width:860px; border-radius:10px; padding:24px;
-            position:relative; border:1px solid #444;
-        }
-        .modal-close {
-            position:absolute; top:12px; right:16px;
-            background:none; border:none; color:#aaa;
-            font-size:1.4rem; cursor:pointer; width:auto; padding:0;
-        }
-        .modal-close:hover { color:#fff; }
-        #detail-total { margin-top:10px; font-weight:bold; text-align:right; font-size:13px; color:#aaa; }
+/* ── ENV-Editor ────────────────────────────────────────── */
+.env-list{display:flex;flex-direction:column;gap:var(--space-2);margin-bottom:var(--space-3)}
+.env-row{display:grid;grid-template-columns:1fr 1fr auto auto;gap:var(--space-2);align-items:center}
+.env-row input{padding:var(--space-2);background:var(--surface-2);border:1px solid var(--border);
+  border-radius:var(--radius-md);font-size:var(--text-sm);color:var(--text);width:100%}
+.env-row input:focus{outline:none;border-color:var(--primary)}
+.masked-toggle{display:flex;align-items:center;gap:var(--space-1);font-size:var(--text-xs);
+  color:var(--text-muted);white-space:nowrap}
+.masked-toggle input[type=checkbox]{accent-color:var(--primary)}
 
-        /* ── Confirm-Modal ─────────────────────────────────────── */
-        #confirm-modal {
-            display:none; position:fixed; inset:0;
-            background:rgba(0,0,0,0.8); z-index:99999;
-            align-items:center; justify-content:center;
-        }
-        #confirm-modal.show { display:flex; }
-        .confirm-box {
-            background:#252526; border:1px solid #555; border-radius:10px;
-            padding:24px; max-width:360px; width:90%; display:flex;
-            flex-direction:column; gap:12px;
-        }
-        .confirm-box h4 { margin:0; color:#fff; font-size:15px; text-transform:none; letter-spacing:0; }
-        .confirm-box p  { margin:0; font-size:13px; color:#aaa; }
-        .confirm-box input { font-size:14px; }
-        .confirm-box .confirm-btns { display:flex; gap:8px; }
-        .confirm-box .confirm-btns button { flex:1; }
+/* ── Status-Badges ─────────────────────────────────────── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px var(--space-2);
+  border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:500}
+.badge-green{background:var(--success-hl);color:var(--success)}
+.badge-red{background:var(--error-hl);color:var(--error)}
+.badge-yellow{background:var(--warning-hl);color:var(--warning)}
+.badge-blue{background:var(--primary-hl);color:var(--primary)}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor}
 
-        /* ── Theme Toggle ──────────────────────────────────────── */
-        #themeToggleBtn { width:auto; padding:5px 8px; font-size:15px; line-height:1; }
-        #themeToggleBtn:hover { background:#555; }
-        body.light-mode #themeToggleBtn:hover { background:#bbb; }
-    </style>
+/* ── Sessions ──────────────────────────────────────────── */
+.session-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:var(--space-4);display:flex;align-items:center;
+  justify-content:space-between;gap:var(--space-4);flex-wrap:wrap
+}
+.session-info{display:flex;flex-direction:column;gap:var(--space-1)}
+.session-actions{display:flex;gap:var(--space-2)}
+
+/* ── Login ─────────────────────────────────────────────── */
+#login-view{display:flex;align-items:center;justify-content:center;min-height:100dvh;
+  background:var(--bg)}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);
+  padding:var(--space-10);width:100%;max-width:400px;box-shadow:var(--shadow-lg)}
+.login-logo{display:flex;align-items:center;justify-content:center;gap:var(--space-3);
+  margin-bottom:var(--space-8)}
+.login-logo span{font-size:var(--text-lg);font-weight:700}
+.login-error{background:var(--error-hl);color:var(--error);padding:var(--space-3);
+  border-radius:var(--radius-md);font-size:var(--text-sm);margin-bottom:var(--space-4);display:none}
+
+/* ── KPI Strip ─────────────────────────────────────────── */
+.kpi-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+  gap:var(--space-4);margin-bottom:var(--space-6)}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:var(--space-4)}
+.kpi-val{font-size:var(--text-xl);font-weight:700;font-variant-numeric:tabular-nums}
+.kpi-label{font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;
+  letter-spacing:0.05em;margin-top:var(--space-1)}
+
+/* ── Team-Checkboxen ───────────────────────────────────── */
+.team-checks{display:flex;flex-wrap:wrap;gap:var(--space-3)}
+.team-check{display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm)}
+.team-check input{accent-color:var(--primary)}
+
+/* ── Toast ─────────────────────────────────────────────── */
+#toast{position:fixed;bottom:var(--space-6);right:var(--space-6);z-index:999;
+  background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:var(--space-3) var(--space-5);box-shadow:var(--shadow-lg);
+  font-size:var(--text-sm);opacity:0;transition:opacity 0.3s;pointer-events:none}
+#toast.show{opacity:1}
+
+/* ── Responsive ────────────────────────────────────────── */
+@media(max-width:640px){
+  .main{padding:var(--space-4)}
+  .form-row{grid-template-columns:1fr}
+  .env-row{grid-template-columns:1fr 1fr;grid-template-rows:auto auto}
+  .modal{padding:var(--space-5)}
+}
+</style>
 </head>
 <body>
 
-<!-- ── Confirm-Modal (Userlöschen) ──────────────────────────── -->
-<div id="confirm-modal">
-    <div class="confirm-box">
-        <h4>&#128465; User wirklich löschen?</h4>
-        <p id="confirm-msg">Bitte gib den Benutzernamen zur Bestätigung ein:</p>
-        <input id="confirm-input" placeholder="Benutzername eingeben..." autocomplete="off">
-        <div class="confirm-btns">
-            <button class="secondary" onclick="closeConfirm()">Abbrechen</button>
-            <button class="danger" id="confirm-ok-btn" onclick="confirmDeleteUser()" disabled>Löschen</button>
-        </div>
+<!-- Login -->
+<div id="login-view">
+  <div class="login-box">
+    <div class="login-logo">
+      <svg aria-label="VBrowser" width="32" height="32" viewBox="0 0 32 32" fill="none"
+           xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="28" height="28" rx="6" stroke="var(--primary)" stroke-width="2"/>
+        <rect x="2" y="8" width="28" height="2" fill="var(--primary)"/>
+        <circle cx="7" cy="5" r="1.5" fill="var(--primary)"/>
+        <circle cx="12" cy="5" r="1.5" fill="var(--primary)"/>
+        <path d="M8 17l4 5 8-8" stroke="var(--primary)" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>VBrowser</span>
     </div>
+    <div id="login-error" class="login-error"></div>
+    <div class="form-group">
+      <label for="login-user">Benutzername</label>
+      <input id="login-user" class="form-control" type="text" autocomplete="username" placeholder="admin">
+    </div>
+    <div class="form-group">
+      <label for="login-pass">Passwort</label>
+      <input id="login-pass" class="form-control" type="password" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:var(--space-2)"
+            onclick="doLogin()">Anmelden</button>
+  </div>
 </div>
 
-<div id="sidebar">
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
-        <h3 style="margin:0;">VBrowser</h3>
-        <div style="display:flex; gap:5px; align-items:center;">
-            <button class="secondary" id="themeToggleBtn" onclick="cycleTheme()" title="Dark / Light / Auto">🌙</button>
-            <button class="secondary hidden" id="logoutBtn" onclick="logout()"
-                    style="width:auto; padding:5px 10px; font-size:12px;">Logout</button>
-        </div>
+<!-- App Shell (nach Login) -->
+<div id="app-view" class="app" style="display:none">
+  <header class="topbar">
+    <div class="topbar-logo">
+      <svg aria-label="VBrowser" width="28" height="28" viewBox="0 0 32 32" fill="none">
+        <rect x="2" y="2" width="28" height="28" rx="6" stroke="var(--primary)" stroke-width="2"/>
+        <rect x="2" y="8" width="28" height="2" fill="var(--primary)"/>
+        <circle cx="7" cy="5" r="1.5" fill="var(--primary)"/>
+        <circle cx="12" cy="5" r="1.5" fill="var(--primary)"/>
+        <path d="M8 17l4 5 8-8" stroke="var(--primary)" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      VBrowser
+    </div>
+    <div class="topbar-right">
+      <span id="topbar-user" style="font-size:var(--text-sm);color:var(--text-muted)"></span>
+      <button class="btn btn-icon btn-ghost" onclick="toggleTheme()" aria-label="Theme wechseln" id="theme-btn">
+        🌙
+      </button>
+      <button class="btn btn-sm btn-secondary" onclick="doLogout()">Abmelden</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <!-- Nutzer-Navigation -->
+    <div id="user-nav" class="tabs">
+      <button class="tab-btn active" onclick="showTab('tab-start','user-nav',this)">Browser starten</button>
+      
     </div>
 
-    <!-- Login -->
-    <div id="loginForm" class="section">
-        <input id="username" placeholder="Benutzername" autocomplete="username">
-        <div class="pw-wrap">
-            <input id="password" placeholder="Passwort" type="password" autocomplete="current-password">
-            <button class="pw-eye" type="button" onclick="togglePw('password',this)" tabindex="-1">&#128065;</button>
+    <!-- Tab: Browser starten -->
+    <div id="tab-start" class="tab-panel active">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-6)">
+        <div>
+          <h2 style="font-size:var(--text-lg);font-weight:600">Container wählen</h2>
+          <p style="font-size:var(--text-sm);color:var(--text-muted);margin-top:var(--space-1)">
+            Wähle einen Browser-Container und starte deine Session.
+          </p>
         </div>
-        <button onclick="doLogin()">Einloggen</button>
+        <button class="btn btn-primary" id="btn-start" onclick="startSession()" disabled>
+          ▶ Starten
+        </button>
+      </div>
+      <div id="container-grid" class="card-grid">
+        <p style="color:var(--text-muted);font-size:var(--text-sm)">Lädt…</p>
+      </div>
     </div>
 
-    <div id="sessionControls" class="hidden section">
-        <button class="green" id="btnStart" onclick="startSession()">&#9654; Session starten</button>
-        <button class="danger" id="btnStop" onclick="stopSession()" disabled>&#9632; Session beenden</button>
+    <!-- Admin-Navigation (nur für Admins) -->
+    <div id="admin-section" style="display:none;margin-top:var(--space-10)">
+      <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-6)">
+        <div style="width:3px;height:24px;background:var(--primary);border-radius:2px"></div>
+        <h2 style="font-size:var(--text-lg);font-weight:600">Administration</h2>
+      </div>
+      <div id="admin-nav" class="tabs">
+        <button class="tab-btn active" onclick="showTab('tab-admin-overview','admin-nav',this)">Übersicht</button>
+        <button class="tab-btn" onclick="showTab('tab-admin-containers','admin-nav',this);loadAdminContainers()">Container</button>
+        <button class="tab-btn" onclick="showTab('tab-admin-users','admin-nav',this);loadAdminUsers()">Nutzer</button>
+        <button class="tab-btn" onclick="showTab('tab-admin-teams','admin-nav',this);loadAdminTeams()">Teams</button>
+        <button class="tab-btn" onclick="showTab('tab-admin-sessions','admin-nav',this);loadAdminSessions()">Alle Sessions</button>
+        <button class="tab-btn" onclick="showTab('tab-admin-log','admin-nav',this);loadAdminLog()">Audit-Log</button>
+      </div>
+
+      <!-- Admin: Übersicht -->
+      <div id="tab-admin-overview" class="tab-panel active">
+        <div id="kpi-strip" class="kpi-strip"></div>
+      </div>
+
+      <!-- Admin: Container -->
+      <div id="tab-admin-containers" class="tab-panel">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:var(--space-4)">
+          <button class="btn btn-primary" onclick="openContainerModal(null)">+ Container hinzufügen</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Name</th><th>Image</th><th>Port</th><th>CPU</th><th>RAM</th>
+              <th>ENV</th><th>Teams</th><th>Standard</th><th>Aktionen</th>
+            </tr></thead>
+            <tbody id="admin-containers-tbody">
+              <tr><td colspan="9" style="color:var(--text-muted);text-align:center;padding:var(--space-8)">Lädt…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Admin: Nutzer -->
+      <div id="tab-admin-users" class="tab-panel">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:var(--space-4)">
+          <button class="btn btn-primary" onclick="openNewUserModal()">+ Nutzer anlegen</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Benutzername</th><th>Rolle</th><th>Team</th><th>Angelegt</th><th>Aktionen</th></tr></thead>
+            <tbody id="admin-users-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Admin: Teams -->
+      <div id="tab-admin-teams" class="tab-panel">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:var(--space-4)">
+          <button class="btn btn-primary" onclick="openNewTeamModal()">+ Team anlegen</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Team</th><th>Mitglieder</th><th>Container</th><th>Aktionen</th></tr></thead>
+            <tbody id="admin-teams-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Admin: Alle Sessions -->
+      <div id="tab-admin-sessions" class="tab-panel">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Nutzer</th><th>Container</th><th>Status</th><th>Gestartet</th><th>Aktionen</th></tr></thead>
+            <tbody id="admin-sessions-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Admin: Audit-Log -->
+      <div id="tab-admin-log" class="tab-panel">
+        <div style="display:flex;justify-content:space-between;margin-bottom:var(--space-4)">
+          <div style="display:flex;gap:var(--space-2);align-items:center">
+             <select id="log-period" class="form-control" onchange="onLogPeriodChange()" style="width:auto">
+                <option value="all">Gesamt</option>
+                <option value="day">Tag</option>
+                <option value="week">Woche</option>
+                <option value="month">Monat</option>
+                <option value="year">Jahr</option>
+             </select>
+             <input id="log-year" class="form-control" type="number" placeholder="Jahr" style="display:none;width:100px" onchange="loadRanking()">
+             <input id="log-month" class="form-control" type="number" placeholder="Monat 1-12" style="display:none;width:100px" min="1" max="12" onchange="loadRanking()">
+             <input id="log-week" class="form-control" type="number" placeholder="KW 1-53" style="display:none;width:100px" min="1" max="53" onchange="loadRanking()">
+             <input id="log-day" class="form-control" type="date" style="display:none;width:150px" onchange="loadRanking()">
+             <button class="btn btn-secondary" onclick="loadRanking()">↻</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Nutzer</th><th style="text-align:right">Sitzungen</th><th style="text-align:right">Gesamtzeit</th></tr></thead>
+            <tbody id="admin-log-tbody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
-    <div id="settingsPanel" class="hidden section">
-        <h4>&#9881; Einstellungen</h4>
-        <label>
-            <input type="checkbox" id="autoStartCb" onchange="saveSettings()">
-            Session automatisch nach Login starten
+  </main>
+</div>
+
+<!-- Fullscreen Session Overlay -->
+<div id="session-fullscreen" style="display:none; position:fixed; inset:0; z-index:9999; background:#000; flex-direction:column;">
+  <div style="height:40px; background:#111; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #333;">
+    <div style="color:#aaa; font-size:14px; font-weight:500; display:flex; gap:10px; align-items:center;">
+      <div style="width:8px; height:8px; border-radius:50%; background:var(--success);"></div>
+      <span id="session-title">Aktive Session</span>
+    </div>
+    <button onclick="stopSession()" style="background:var(--error); color:#fff; border:none; padding:4px 12px; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold;">
+      ⏹ Session beenden
+    </button>
+  </div>
+  <iframe id="browserFrame" style="flex:1; width:100%; border:none; background:#000;"></iframe>
+</div>
+
+<!-- Modal: Container hinzufügen / bearbeiten -->
+<div id="modal-container" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-container-title">Container</h2>
+      <button class="btn btn-icon btn-ghost" onclick="closeModal('modal-container')" aria-label="Schließen">✕</button>
+    </div>
+    <form id="form-container" onsubmit="saveContainer(event)">
+      <input type="hidden" id="cdef-id">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="cdef-name">Name *</label>
+          <input id="cdef-name" class="form-control" required placeholder="z.B. Firefox ESR">
+        </div>
+        <div class="form-group">
+          <label for="cdef-image">Docker-Image *</label>
+          <input id="cdef-image" class="form-control" required placeholder="jlesage/firefox:latest">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="cdef-port">Interner Port</label>
+          <input id="cdef-port" class="form-control" type="number" value="5800" min="1" max="65535">
+        </div>
+        <div class="form-group">
+          <label for="cdef-shm">SHM-Größe</label>
+          <input id="cdef-shm" class="form-control" placeholder="2g">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="cdef-cpu">CPU-Limit (Kerne, leer = unbegrenzt)</label>
+          <input id="cdef-cpu" class="form-control" type="number" step="0.1" min="0.1" placeholder="z.B. 2.0">
+        </div>
+        <div class="form-group">
+          <label for="cdef-mem">RAM-Limit (leer = unbegrenzt)</label>
+          <input id="cdef-mem" class="form-control" placeholder="z.B. 2g">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="cdef-restart">Neustart-Policy</label>
+          <select id="cdef-restart" class="form-control">
+            <option value="no">no</option>
+            <option value="on-failure">on-failure</option>
+            <option value="always">always</option>
+            <option value="unless-stopped">unless-stopped</option>
+          </select>
+        </div>
+        <div class="form-group" style="justify-content:flex-end;padding-top:var(--space-6)">
+          <label style="display:flex;align-items:center;gap:var(--space-2);font-weight:500;cursor:pointer">
+            <input type="checkbox" id="cdef-default" style="accent-color:var(--primary)">
+            Standard-Container
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="cdef-desc">Beschreibung</label>
+        <input id="cdef-desc" class="form-control" placeholder="Kurze Beschreibung für Nutzer">
+      </div>
+
+      <!-- ENV-Variablen -->
+      <div style="margin-bottom:var(--space-4)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-2)">
+          <label style="font-size:var(--text-sm);font-weight:500;color:var(--text-muted)">
+            Environment-Variablen
+          </label>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="addEnvRow()">+ ENV hinzufügen</button>
+        </div>
+        <div id="env-list" class="env-list"></div>
+        <p class="form-hint">TOKEN wird automatisch gesetzt und muss nicht angegeben werden.</p>
+      </div>
+
+      <!-- Team-Zuweisung -->
+      <div class="form-group">
+        <label style="margin-bottom:var(--space-2)">Team-Zugang (leer = alle Teams)</label>
+        <div id="team-checks" class="team-checks">
+          <p style="font-size:var(--text-sm);color:var(--text-muted)">Lädt…</p>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-container')">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Nutzer anlegen -->
+<div id="modal-user" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Nutzer anlegen</h2>
+      <button class="btn btn-icon btn-ghost" onclick="closeModal('modal-user')" aria-label="Schließen">✕</button>
+    </div>
+    <form onsubmit="createUser(event)">
+      <div class="form-group"><label>Benutzername *</label>
+        <input id="new-username" class="form-control" required></div>
+      <div class="form-group"><label>Passwort *</label>
+        <input id="new-password" class="form-control" type="password" required></div>
+      <div class="form-group"><label>Team</label>
+        <select id="new-user-team" class="form-control">
+          <option value="">— kein Team —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer">
+          <input type="checkbox" id="new-isadmin" style="accent-color:var(--primary)"> Admin
         </label>
-        <hr>
-        <button class="reset" onclick="resetProfile()">&#128308; Firefox-Profil zurücksetzen</button>
-        <div class="settings-hint">Löscht alle Einstellungen, Lesezeichen und den Verlauf dauerhaft.</div>
-    </div>
-    <div id="adminPanel" class="hidden">
-        <hr>
-        <button class="secondary" onclick="toggleAdmin()">&#9881; Verwaltung</button>
-        <div id="adminArea" class="hidden">
-            <div class="tabs" style="margin-top:8px">
-                <div class="tab active" onclick="switchTab('users')">Benutzer</div>
-                <div class="tab" id="teamsTabBtn" onclick="switchTab('teams')">Teams</div>
-                <div class="tab" id="sessionsTabBtn" onclick="switchTab('sessions')">Sessions</div>
-                <div class="tab" id="loggingTabBtn" onclick="switchTab('logging')">&#128202; Log</div>
-            </div>
-
-            <!-- TAB: Benutzer -->
-            <div id="tab-users" class="tab-content active section" style="margin-top:6px">
-                <h4>Benutzer</h4>
-                <div class="filter-row">
-                    <input class="search" id="filterUsername" placeholder="Name suchen..." oninput="renderUsers()">
-                    <select id="filterTeam" onchange="renderUsers()">
-                        <option value="">Alle Teams</option>
-                    </select>
-                </div>
-                <div id="userCount" class="count"></div>
-                <div id="userList"></div>
-                <hr>
-                <h4>Neu anlegen</h4>
-                <input id="newUsername" placeholder="Benutzername">
-                <div class="pw-wrap">
-                    <input id="newPassword" placeholder="Passwort" type="password">
-                    <button class="pw-eye" type="button" onclick="togglePw('newPassword',this)" tabindex="-1">&#128065;</button>
-                </div>
-                <select id="newTeam"><option value="">-- Kein Team --</option></select>
-                <label id="newIsAdminLabel"><input id="newIsAdmin" type="checkbox"> Superadmin</label>
-                <button class="secondary" onclick="addUser()">+ User anlegen</button>
-            </div>
-
-            <!-- TAB: Teams -->
-            <div id="tab-teams" class="tab-content section" style="margin-top:6px">
-                <h4>Teams</h4>
-                <div id="teamList"></div>
-                <hr>
-                <h4>Team anlegen</h4>
-                <input id="newTeamName" placeholder="Teamname">
-                <button class="secondary" onclick="addTeam()">+ Team anlegen</button>
-                <hr>
-                <h4>Team-Admin zuweisen</h4>
-                <div class="searchable">
-                    <input class="search" id="taTeamSearch" placeholder="Team suchen..." oninput="filterSelect('taTeam','taTeamSearch')">
-                    <select id="taTeam" size="4"></select>
-                </div>
-                <div class="searchable">
-                    <input class="search" id="taUserSearch" placeholder="User suchen..." oninput="filterSelect('taUser','taUserSearch')">
-                    <select id="taUser" size="4"></select>
-                </div>
-                <button class="secondary" onclick="assignTeamAdmin()">+ Als Team-Admin setzen</button>
-            </div>
-
-            <!-- TAB: Aktive Sessions -->
-            <div id="tab-sessions" class="tab-content section" style="margin-top:6px">
-                <h4>Aktive Sessions</h4>
-                <button class="secondary" onclick="loadSessions()">&#8635; Aktualisieren</button>
-                <div id="sessionList"><div style="color:#666;font-size:13px">Lade...</div></div>
-            </div>
-
-            <!-- TAB: Logging -->
-            <div id="tab-logging" class="tab-content section" style="margin-top:6px">
-                <h4>&#128202; Nutzungsrangliste</h4>
-                <!-- Umschalter Nutzer / Teams -->
-                <div class="rank-toggle">
-                    <button class="secondary active" id="rankModeUsers" onclick="setRankMode('users')">&#128100; Nutzer</button>
-                    <button class="secondary" id="rankModeTeams" onclick="setRankMode('teams')">&#128101; Teams</button>
-                </div>
-                <div class="log-filter-row">
-                    <select id="log-period" onchange="onLogPeriodChange()">
-                        <option value="all">Gesamt</option>
-                        <option value="day">Tag</option>
-                        <option value="week">Woche</option>
-                        <option value="month">Monat</option>
-                        <option value="year">Jahr</option>
-                    </select>
-                    <input id="log-year"  type="number" placeholder="Jahr"      style="display:none" onchange="loadRanking()">
-                    <input id="log-month" type="number" placeholder="Monat 1-12" style="display:none" min="1" max="12" onchange="loadRanking()">
-                    <input id="log-week"  type="number" placeholder="KW 1-53"   style="display:none" min="1" max="53" onchange="loadRanking()">
-                    <input id="log-day"   type="date"                            style="display:none" onchange="loadRanking()">
-                    <button onclick="loadRanking()" style="width:auto;padding:7px 12px;">&#8635;</button>
-                </div>
-                <div id="ranking-wrap" style="overflow-x:auto">
-                    <table class="log-table">
-                        <thead id="ranking-head">
-                            <tr>
-                                <th style="width:32px">#</th>
-                                <th>Nutzer</th>
-                                <th style="text-align:right">Sitzungen</th>
-                                <th style="text-align:right">Gesamtzeit</th>
-                            </tr>
-                        </thead>
-                        <tbody id="ranking-body">
-                            <tr><td colspan="4" style="color:#666;padding:12px">Noch nicht geladen.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-                <hr>
-                <h4>&#128269; Container &#8594; Nutzer</h4>
-                <div class="log-filter-row">
-                    <input id="container-search-input" type="text" placeholder="Container-Name z.B. vbrowser-a1b2c3d4">
-                    <button onclick="searchContainer()" style="width:auto;padding:7px 12px;">Suchen</button>
-                </div>
-                <div id="container-result"></div>
-            </div>
-
-        </div>
-    </div>
-    <div id="status">Bereit</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-user')">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Anlegen</button>
+      </div>
+    </form>
+  </div>
 </div>
 
-<div id="content">
-    <button id="sidebarToggle" onclick="toggleSidebar()" title="Sidebar ein-/ausblenden (Ctrl+B)">&#9664;</button>
-    <div id="placeholder">Bitte einloggen...</div>
-    <iframe id="browserFrame"></iframe>
-
-    <!-- Ladebalken Session-Start -->
-    <div id="startProgress"><div id="startProgressBar"></div></div>
-
-    <!-- Session-Expired Overlay -->
-    <div id="sessionOverlay" style="display:none; position:absolute; inset:0;
-         background:rgba(0,0,0,0.82); color:white; flex-direction:column;
-         align-items:center; justify-content:center; z-index:50; gap:14px;">
-        <div style="font-size:32px">&#9888;&#65039;</div>
-        <div id="overlayMessage" style="font-size:15px; color:#ccc; text-align:center; max-width:300px;">
-            Deine Session ist nicht mehr aktiv.
-        </div>
-        <button class="green" id="overlayStartBtn" onclick="restartSessionFromOverlay()"
-                style="width:200px; margin-top:8px;">&#9654; Session starten</button>
+<!-- Modal: Team anlegen -->
+<div id="modal-team" class="modal-backdrop">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <h2>Team anlegen</h2>
+      <button class="btn btn-icon btn-ghost" onclick="closeModal('modal-team')" aria-label="Schließen">✕</button>
     </div>
-
-    <!-- Nutzer-Detail Modal -->
-    <div id="user-detail-modal">
-        <div class="modal-box">
-            <button class="modal-close" onclick="closeUserDetail()">&#10005;</button>
-            <h3 id="detail-title" style="margin-bottom:12px">Sitzungsdetails</h3>
-            <div class="log-filter-row" style="margin-bottom:10px">
-                <select id="detail-period" onchange="onDetailPeriodChange()">
-                    <option value="all">Gesamt</option>
-                    <option value="day">Tag</option>
-                    <option value="week">Woche</option>
-                    <option value="month">Monat</option>
-                    <option value="year">Jahr</option>
-                </select>
-                <input id="detail-year"  type="number" placeholder="Jahr"  style="display:none" onchange="loadUserDetail()">
-                <input id="detail-month" type="number" placeholder="Monat" min="1" max="12" style="display:none" onchange="loadUserDetail()">
-                <input id="detail-week"  type="number" placeholder="KW"    min="1" max="53" style="display:none" onchange="loadUserDetail()">
-                <input id="detail-day"   type="date"   style="display:none" onchange="loadUserDetail()">
-            </div>
-            <div style="overflow-x:auto">
-                <table class="log-table">
-                    <thead><tr>
-                        <th>Start</th><th>Ende</th>
-                        <th style="text-align:right">Dauer</th>
-                        <th>IP</th><th>Container</th>
-                    </tr></thead>
-                    <tbody id="detail-body"></tbody>
-                </table>
-            </div>
-            <div id="detail-total"></div>
-        </div>
-    </div>
+    <form onsubmit="createTeam(event)">
+      <div class="form-group"><label>Team-Name *</label>
+        <input id="new-teamname" class="form-control" required></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-team')">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Anlegen</button>
+      </div>
+    </form>
+  </div>
 </div>
 
+<!-- Modal: Nutzer-Details Log -->
+<div id="user-detail-modal" class="modal-backdrop">
+  <div class="modal" style="max-width:800px">
+    <div class="modal-header">
+      <h2 id="detail-title">Sitzungen</h2>
+      <button class="btn btn-icon btn-ghost" onclick="closeModal('user-detail-modal')" aria-label="Schließen">✕</button>
+    </div>
+
+    <div style="display:flex;gap:var(--space-2);margin-bottom:var(--space-4)">
+       <select id="detail-period" class="form-control" onchange="showPeriodFields('detail-'); loadUserDetail()" style="width:auto">
+          <option value="all">Gesamt</option>
+          <option value="day">Tag</option>
+          <option value="week">Woche</option>
+          <option value="month">Monat</option>
+          <option value="year">Jahr</option>
+       </select>
+       <input id="detail-year" class="form-control" type="number" placeholder="Jahr" style="display:none;width:100px" onchange="loadUserDetail()">
+       <input id="detail-month" class="form-control" type="number" placeholder="Monat 1-12" style="display:none;width:100px" min="1" max="12" onchange="loadUserDetail()">
+       <input id="detail-week" class="form-control" type="number" placeholder="KW 1-53" style="display:none;width:100px" min="1" max="53" onchange="loadUserDetail()">
+       <input id="detail-day" class="form-control" type="date" style="display:none;width:150px" onchange="loadUserDetail()">
+       <button class="btn btn-secondary" onclick="loadUserDetail()">↻</button>
+    </div>
+
+    <div class="table-wrap" style="max-height:400px;overflow-y:auto">
+      <table>
+        <thead><tr><th>Image</th><th>Container</th><th>Start</th><th>Dauer</th></tr></thead>
+        <tbody id="detail-body"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:var(--space-4);text-align:right;font-weight:bold" id="detail-total"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
 
 <script>
-let token = localStorage.getItem("token");
-let currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
-let allUsers = [], allTeams = [], teamAdminMap = {};
-let currentSessionId = null;
-let healthCheckInterval = null;
+// ── State ──────────────────────────────────────────────────────────────
+let token = null;
+let currentUser = null;
+let selectedContainerDefId = null;
+let allContainerDefs = [];
+let allTeams = [];
+let logData = [];
 
-if (token && currentUser) showSessionUI();
-
-
-// ── Theme ───────────────────────────────────────────────────────
-const _themes     = ['dark','light','auto'];
-const _themeIcons = { dark:'🌙', light:'☀️', auto:'🖥' };
-function applyTheme(mode) {
-    document.body.classList.remove('light-mode');
-    if (mode === 'light') document.body.classList.add('light-mode');
-    else if (mode === 'auto' && !window.matchMedia('(prefers-color-scheme: dark)').matches)
-        document.body.classList.add('light-mode');
-    const btn = document.getElementById('themeToggleBtn');
-    if (btn) btn.textContent = _themeIcons[mode];
-    localStorage.setItem('theme', mode);
-}
-function cycleTheme() {
-    const cur = localStorage.getItem('theme') || 'dark';
-    applyTheme(_themes[(_themes.indexOf(cur)+1)%3]);
-}
-applyTheme(localStorage.getItem('theme') || 'dark');
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    if ((localStorage.getItem('theme')||'dark') === 'auto') applyTheme('auto');
-});
-
-
-// ── Passwort sichtbar/unsichtbar togglen ────────────────────────
-function togglePw(inputId, btn) {
-    const inp = document.getElementById(inputId);
-    if (inp.type === 'password') { inp.type = 'text';     btn.textContent = '🙈'; }
-    else                         { inp.type = 'password'; btn.textContent = '👁'; }
+// ── Theme ──────────────────────────────────────────────────────────────
+let theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+document.documentElement.setAttribute('data-theme', theme);
+function toggleTheme() {
+  theme = theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('theme-btn').textContent = theme === 'dark' ? '🌙' : '☀️';
 }
 
-
-// ── Sidebar Toggle ──────────────────────────────────────────────
-let _adminWasExpanded = false;
-function toggleSidebar() {
-    const willCollapse = !document.body.classList.contains("sidebar-collapsed");
-    if (willCollapse) {
-        _adminWasExpanded = document.body.classList.contains("admin-expanded");
-        document.body.classList.remove("admin-expanded");
-        document.body.classList.add("sidebar-collapsed");
-        document.getElementById("sidebarToggle").innerHTML = "&#9654;";
-    } else {
-        document.body.classList.remove("sidebar-collapsed");
-        if (_adminWasExpanded) document.body.classList.add("admin-expanded");
-        document.getElementById("sidebarToggle").innerHTML = "&#9664;";
-    }
-    localStorage.setItem("sidebarCollapsed", willCollapse ? "1" : "0");
-}
-if (localStorage.getItem("sidebarCollapsed") === "1") {
-    document.body.classList.add("sidebar-collapsed");
-    document.getElementById("sidebarToggle").innerHTML = "&#9654;";
-}
-document.addEventListener("keydown", e => {
-    if (e.ctrlKey && e.key === "b") { e.preventDefault(); toggleSidebar(); }
-});
-
-
-// ── Helpers ─────────────────────────────────────────────────────
-function setSessionState(running) {
-    document.getElementById("btnStart").disabled = running;
-    document.getElementById("btnStop").disabled  = !running;
-}
-function setStatus(msg, isError=false) {
-    const el = document.getElementById("status");
-    el.textContent = msg;
-    el.style.color = isError ? "#f66" : "#888";
-}
-function setButtons(disabled) {
-    document.querySelectorAll("button").forEach(b => {
-        if (!b.classList.contains("small") && b.id !== "btnStart" && b.id !== "btnStop")
-            b.disabled = disabled;
-    });
-}
-async function api(path, method="GET", body=null) {
-    const opts = { method, headers: { "Authorization": `Bearer ${token}` } };
-    if (body) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
-    const res = await fetch(path, opts);
-    if (!res.ok) { const e = await res.json().catch(()=>({detail:"Fehler"})); throw new Error(e.detail||"Fehler"); }
-    return res.json();
+// ── Toast ──────────────────────────────────────────────────────────────
+function toast(msg, type='info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.borderColor = type === 'error' ? 'var(--error)' : type === 'ok' ? 'var(--success)' : 'var(--border)';
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
 }
 
+// ── API helper ─────────────────────────────────────────────────────────
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    headers: { 'Content-Type': 'application/json', ...(token ? {'Authorization': 'Bearer ' + token} : {}) },
+    ...opts
+  });
+  if (res.status === 401) { doLogout(); return null; }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Fehler ' + res.status);
+  return data;
+}
 
-// ── Login ───────────────────────────────────────────────────────
-document.getElementById("username").addEventListener("keydown", e => {
-    if (e.key === "Enter") document.getElementById("password").focus();
-});
-document.getElementById("password").addEventListener("keydown", e => {
-    if (e.key === "Enter") doLogin();
-});
-
+// ── Auth ───────────────────────────────────────────────────────────────
 async function doLogin() {
-    setButtons(true);
-    setStatus("Logge ein...");
-    const u = document.getElementById("username").value;
-    const p = document.getElementById("password").value;
-    try {
-        const res = await fetch("/api/login", {
-            method:"POST", headers:{"Content-Type":"application/json"},
-            body: JSON.stringify({username:u, password:p})
-        });
-        if (!res.ok) throw new Error("Login fehlgeschlagen");
-        const data = await res.json();
-        token = data.token; currentUser = data;
-        localStorage.setItem("token", token);
-        localStorage.setItem("currentUser", JSON.stringify(data));
-        showSessionUI();
-        setStatus("Eingeloggt als " + u);
-        if (data.auto_start_session) setTimeout(() => startSession(), 500);
-    } catch(e) { setStatus(e.message, true); }
-    setButtons(false);
-}
-
-function showSessionUI() {
-    document.getElementById("loginForm").classList.add("hidden");
-    document.getElementById("sessionControls").classList.remove("hidden");
-    document.getElementById("settingsPanel").classList.remove("hidden");
-    document.getElementById("logoutBtn").classList.remove("hidden");
-    document.getElementById("placeholder").textContent = "";
-    const isAdmin    = currentUser?.isadmin;
-    const isTeamAdmin = currentUser?.admin_teams?.length > 0;
-    if (isAdmin || isTeamAdmin) {
-        document.getElementById("adminPanel").classList.remove("hidden");
-        document.getElementById("teamsTabBtn").classList.toggle("hidden", !isAdmin);
-        document.getElementById("sessionsTabBtn").classList.toggle("hidden", !isAdmin);
-        document.getElementById("loggingTabBtn").classList.toggle("hidden", !isAdmin);
-        document.getElementById("newIsAdminLabel").classList.toggle("hidden", !isAdmin);
+  const u = document.getElementById('login-user').value.trim();
+  const p = document.getElementById('login-pass').value;
+  const err = document.getElementById('login-error');
+  err.style.display = 'none';
+  try {
+    const data = await fetch('/api/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({username: u, password: p})
+    }).then(async r => {
+      const json = await r.json();
+      if (!r.ok) throw new Error(json.detail || 'Falsche Zugangsdaten');
+      return json;
+    });
+    
+    const jwt = data.token || data.access_token;
+    if (!jwt) throw new Error('Ungültige Server-Antwort (kein Token)');
+    
+    token = jwt;
+    currentUser = data.user || {
+      username: u, 
+      isadmin: data.isadmin !== undefined ? data.isadmin : (data.user && data.user.isadmin)
+    };
+    
+    if (typeof currentUser.isadmin === 'number') {
+        currentUser.isadmin = currentUser.isadmin === 1;
     }
-    loadSettings();
+    
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('app-view').style.display = 'flex';
+    document.getElementById('topbar-user').textContent = currentUser.username;
+    initApp();
+  } catch(e) {
+    err.textContent = e.message;
+    err.style.display = 'block';
+  }
 }
 
-async function loadSettings() {
-    try {
-        const data = await api("/api/user/settings");
-        document.getElementById("autoStartCb").checked = !!data.auto_start_session;
-    } catch(e) {}
-}
-async function saveSettings() {
-    const auto = document.getElementById("autoStartCb").checked;
-    try {
-        await api("/api/user/settings", "PATCH", { auto_start_session: auto });
-        setStatus("Einstellungen gespeichert");
-    } catch(e) { setStatus(e.message, true); }
-}
-async function resetProfile() {
-    if (!confirm("Wirklich das Firefox-Profil zurücksetzen? Alle Lesezeichen und Einstellungen werden gelöscht!")) return;
-    setButtons(true); setStatus("Setze Profil zurück...");
-    try {
-        await api("/api/session/reset", "POST");
-        document.getElementById("browserFrame").src = "";
-        document.getElementById("browserFrame").style.display = "none";
-        document.getElementById("placeholder").style.display = "flex";
-        document.getElementById("placeholder").textContent = "Profil zurückgesetzt. Neue Session starten.";
-        setStatus("Profil zurückgesetzt");
-        setSessionState(false); stopHealthPolling(); currentSessionId = null;
-    } catch(e) { setStatus(e.message, true); }
-    setButtons(false);
+document.getElementById('login-pass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+function doLogout() {
+  token = null; currentUser = null;
+  document.getElementById('login-view').style.display = 'flex';
+  document.getElementById('app-view').style.display = 'none';
 }
 
-async function logout() {
-    stopHealthPolling(); currentSessionId = null;
-    setStatus("Trenne Session...");
-    if (!document.getElementById("btnStop").disabled) {
-        try { await api("/api/session/stop","POST"); } catch(e) {}
+// ── App Init ───────────────────────────────────────────────────────────
+function initApp() {
+  if (currentUser.isadmin) {
+    document.getElementById('admin-section').style.display = 'block';
+    loadKPIs();
+  }
+  loadContainerDefs();
+  
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────
+function showTab(panelId, navId, btn) {
+  document.querySelectorAll('#' + navId + ' .tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#' + panelId.replace(/-[^-]*$/, '') + ' .tab-panel, .tab-panel').forEach(p => {
+    if (p.id && p.id.startsWith(panelId.split('-').slice(0,2).join('-'))) p.classList.remove('active');
+  });
+  btn.classList.add('active');
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  const siblings = panel.parentElement.querySelectorAll('.tab-panel');
+  siblings.forEach(s => s.classList.remove('active'));
+  panel.classList.add('active');
+}
+
+// ── Modal helpers ──────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-backdrop').forEach(el =>
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); })
+);
+
+// ── Container-Auswahl (Nutzer) ─────────────────────────────────────────
+async function loadContainerDefs() {
+  const grid = document.getElementById('container-grid');
+  try {
+    allContainerDefs = await api('/api/containers');
+    grid.innerHTML = '';
+    if (!allContainerDefs.length) {
+      grid.innerHTML = '<p style="color:var(--text-muted)">Keine Container verfügbar.</p>';
+      return;
     }
-    localStorage.clear(); location.reload();
+    allContainerDefs.forEach(cd => {
+      const card = document.createElement('div');
+      card.className = 'container-card';
+      card.dataset.id = cd.id;
+      if (cd.is_default) card.innerHTML += '<span class="default-badge">Standard</span>';
+      const teams = cd.team_ids && cd.team_ids.length
+        ? '<span class="tag">Teams: ' + cd.team_ids.length + '</span>'
+        : '<span class="tag">Alle Teams</span>';
+      const envCount = cd.env_vars ? cd.env_vars.length : 0;
+      card.innerHTML += `
+        <h3>${esc(cd.name)}</h3>
+        <p>${esc(cd.description || cd.image)}</p>
+        <div class="meta">
+          <span class="tag">${esc(cd.image.split(':')[0].split('/').pop())}</span>
+          ${envCount > 0 ? '<span class="tag">' + envCount + ' ENV</span>' : ''}
+          ${teams}
+        </div>`;
+      card.addEventListener('click', () => selectContainer(cd.id, card));
+      grid.appendChild(card);
+      if (cd.is_default) selectContainer(cd.id, card);
+    });
+  } catch(e) {
+    grid.innerHTML = '<p style="color:var(--error)">Fehler: ' + esc(e.message) + '</p>';
+  }
 }
 
-
-// ── Session Start / Stop ────────────────────────────────────────
-function setProgress(pct) {
-    const wrap = document.getElementById("startProgress");
-    const bar  = document.getElementById("startProgressBar");
-    if (pct === null) { wrap.style.display = "none"; bar.style.width = "0%"; return; }
-    wrap.style.display = "block";
-    bar.style.width = pct + "%";
+function selectContainer(id, card) {
+  document.querySelectorAll('.container-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  selectedContainerDefId = id;
+  document.getElementById('btn-start').disabled = false;
 }
+
+let activeSessionInterval = null;
 
 async function startSession() {
-    setButtons(true);
-    setStatus("Starte Container...");
-    setProgress(10);
-    try {
-        const data = await api("/api/session/start", "POST");
-        currentSessionId = data.session_id ?? "active";
-        setStatus("Lade Browser...");
-        setProgress(40);
+  const btn = document.getElementById("btn-start");
+  btn.disabled = true;
+  btn.textContent = "⏳ Startet… (Bitte warten)";
+
+  try {
+    const data = await api("/api/session/start", {
+      method: "POST",
+      body: JSON.stringify({container_def_id: selectedContainerDefId})
+    });
+
+    // Cookie über verstecktes iFrame setzen
+    const cookieFrame = document.createElement("iframe");
+    cookieFrame.style.display = "none";
+    const browserHost = new URL(data.url).host;
+    cookieFrame.src = `https://${browserHost}/auth/set-cookie?token=${encodeURIComponent(data.token)}&redirect=${encodeURIComponent(data.url)}`;
+    document.body.appendChild(cookieFrame);
+
+    // Sanduhr länger anzeigen (6 Sekunden), um Spam zu verhindern
+    setTimeout(() => {
+        document.body.removeChild(cookieFrame);
+
+        // Container ins Haupt-iFrame laden
+        const frame = document.getElementById("browserFrame");
+        frame.src = data.url;
+
+        document.getElementById("session-title").textContent = data.container_def || "Browser";
+        document.getElementById("session-fullscreen").style.display = "flex";
+
+        // Heartbeats starten (30s)
+        if(activeSessionInterval) clearInterval(activeSessionInterval);
+        activeSessionInterval = setInterval(async () => {
+            try { await api(`/api/session/${data.session_id}/heartbeat`, {method: "POST"}); } catch(e) {}
+        }, 30000);
+
+        window.currentRunningSessionId = data.session_id;
+        toast("Browser bereit", "ok");
+
+        // WICHTIG: Start-Button wird hier NICHT aktiviert! 
+        // Er bleibt deaktiviert, solange die Session läuft.
+    }, 6000);
+
+  } catch(e) {
+    toast("Fehler: " + e.message, "error");
+    btn.disabled = false;
+    btn.textContent = "▶ Starten";
+  }
+}
+
+// ── Sessions ───────────────────────────────────────────────────────────
+async function loadSessions() {
+  const list = document.getElementById('sessions-list');
+  try {
+    const sessions = await api('/api/session/list');
+    if (!sessions || !sessions.length) {
+      list.innerHTML = '<p style="color:var(--text-muted);font-size:var(--text-sm)">Noch keine Sessions.</p>';
+      return;
+    }
+    list.innerHTML = sessions.map(s => `
+      <div class="session-card">
+        <div class="session-info">
+          <strong style="font-size:var(--text-sm)">${esc(s.container_name)}</strong>
+          <span style="font-size:var(--text-xs);color:var(--text-muted)">${fmtDate(s.created_at)}</span>
+          <span class="badge ${s.status === 'running' ? 'badge-green' : 'badge-red'}">
+            <span class="dot"></span>${esc(s.status)}
+          </span>
+        </div>
+        <div class="session-actions">
+          ${s.status === 'running' ? `
+            <button class="btn btn-sm btn-secondary" onclick="connectSession('${s.id}')">Verbinden</button>
+            <button class="btn btn-sm btn-danger" onclick="stopSession('${s.id}')">Stoppen</button>
+          ` : `<button class="btn btn-sm btn-ghost" onclick="deleteSession('${s.id}')">Entfernen</button>`}
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = '<p style="color:var(--error)">Fehler beim Laden.</p>';
+  }
+}
+
+async function connectSession(id) {
+  try {
+     const sessions = await api("/api/session/list");
+     const s = sessions.find(x => x.id === id);
+     if(s) {
         const cookieFrame = document.createElement("iframe");
         cookieFrame.style.display = "none";
-        const browserHost = new URL(data.url).host;
-        cookieFrame.src = `https://${browserHost}/auth/set-cookie`
-            + `?token=${encodeURIComponent(data.token)}`
-            + `&redirect=${encodeURIComponent(data.url)}`;
+
+        // Construct the URL properly via Traefik Subdomain
+        let targetUrl = s.url;
+        if (!targetUrl) {
+            const hostId = s.container_name.replace("vbrowser-", "");
+            // Errate die Base Domain aus der aktuellen URL
+            let baseParts = window.location.hostname.split('.');
+            let baseDomain = window.location.hostname;
+            if (baseParts.length > 2) {
+                baseDomain = baseParts.slice(1).join('.'); // z.B. vbrowser.de
+            }
+            targetUrl = `https://${hostId}.${baseDomain}/`;
+        }
+
+        const browserHost = new URL(targetUrl).host;
+        cookieFrame.src = `https://${browserHost}/auth/set-cookie?token=${encodeURIComponent(s.token)}&redirect=${encodeURIComponent(targetUrl)}`;
         document.body.appendChild(cookieFrame);
-        // Animiere Fortschritt 40→90 über 4s
-        let prog = 40;
-        const progInt = setInterval(() => {
-            prog = Math.min(90, prog + 5);
-            setProgress(prog);
-        }, 400);
+
         setTimeout(() => {
-            clearInterval(progInt);
             document.body.removeChild(cookieFrame);
             const frame = document.getElementById("browserFrame");
-            frame.src = data.url;
-            frame.style.display = "block";
-            document.getElementById("placeholder").style.display = "none";
-            document.getElementById("sessionOverlay").style.display = "none";
-            setProgress(100);
-            setTimeout(() => setProgress(null), 600);
-            setStatus("Browser läuft");
-            setSessionState(true); setButtons(false);
-            startHealthPolling();
-            if (!document.body.classList.contains("sidebar-collapsed")) toggleSidebar();
-        }, 5000);
-    } catch(e) {
-        setProgress(null);
-        setStatus(e.message, true);
-        setButtons(false);
+            frame.src = targetUrl;
+            document.getElementById("session-title").textContent = s.container_name;
+            document.getElementById("session-fullscreen").style.display = "flex";
+
+            if(activeSessionInterval) clearInterval(activeSessionInterval);
+            window.currentRunningSessionId = s.session_id;
+        }, 3000);
+     }
+  } catch(e) { toast("Verbindung fehlgeschlagen", "error"); }
+}
+
+
+async function stopSession(id = null) {
+  const targetId = id || window.currentRunningSessionId;
+  if (!targetId) return;
+  if (!confirm("Session wirklich beenden und löschen?")) return;
+
+  const btn = document.getElementById("btn-start");
+
+  try {
+    // Ruft nun DELETE statt POST /stop auf. Dadurch wird der Container gestoppt UND aus der DB gelöscht!
+    await api("/api/session/" + targetId, {method:"DELETE"});
+    toast("Session beendet und entfernt.", "ok");
+
+    if (targetId === window.currentRunningSessionId) {
+        document.getElementById("session-fullscreen").style.display = "none";
+        document.getElementById("browserFrame").src = "about:blank";
+        if(activeSessionInterval) clearInterval(activeSessionInterval);
+        window.currentRunningSessionId = null;
     }
+
+    // Admins haben noch die Übersicht, diese manuell laden
+    if (currentUser && currentUser.isadmin && typeof loadAdminSessions === "function") {
+        loadAdminSessions();
+    }
+  } catch(e) { 
+    toast(e.message, "error"); 
+  } finally {
+    // Start-Button erst nach dem endgültigen Beenden wieder freigeben
+    if (btn) {
+        btn.disabled = false;
+        btn.textContent = "▶ Starten";
+    }
+  }
 }
 
-async function stopSession() {
-    stopHealthPolling(); currentSessionId = null; setButtons(true);
-    try {
-        await api("/api/session/stop","POST");
-        document.getElementById("browserFrame").src = "";
-        document.getElementById("browserFrame").style.display = "none";
-        document.getElementById("sessionOverlay").style.display = "none";
-        document.getElementById("placeholder").style.display = "flex";
-        document.getElementById("placeholder").textContent = "Session beendet";
-        setStatus("Session gestoppt"); setSessionState(false);
-    } catch(e) { setStatus(e.message, true); }
-    setButtons(false);
+async function deleteSession(id) {
+  try {
+    await api('/api/session/' + id, {method:'DELETE'});
+    toast('Session entfernt.', 'ok');
+    
+  } catch(e) { toast(e.message, 'error'); }
 }
 
-
-// ── Health Check ────────────────────────────────────────────────
-document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && currentSessionId) {
-        pollSessionHealth(); startHealthPolling();
-    } else { stopHealthPolling(); }
-});
-function startHealthPolling() { stopHealthPolling(); healthCheckInterval = setInterval(pollSessionHealth, 30000); }
-function stopHealthPolling()  { if (healthCheckInterval) { clearInterval(healthCheckInterval); healthCheckInterval = null; } }
-async function pollSessionHealth() {
-    if (!currentSessionId) return;
-    try {
-        const res = await fetch("/api/session/status", { headers:{"Authorization":`Bearer ${token}`} });
-        if (!res.ok) { showSessionOverlay("Session nicht mehr erreichbar."); return; }
-        const data = await res.json();
-        if (!data.running) showSessionOverlay("Deine Session ist abgelaufen oder wurde beendet.");
-    } catch { showSessionOverlay("Verbindung zum Server verloren."); }
-}
-function showSessionOverlay(msg) {
-    stopHealthPolling(); currentSessionId = null;
-    document.getElementById("browserFrame").style.display = "none";
-    document.getElementById("overlayMessage").textContent = msg;
-    const btn = document.getElementById("overlayStartBtn");
-    btn.disabled = false; btn.textContent = "▶ Session starten";
-    document.getElementById("sessionOverlay").style.display = "flex";
-    setSessionState(false); setStatus("Session inaktiv", true);
-    if (document.body.classList.contains("sidebar-collapsed")) toggleSidebar();
-}
-async function restartSessionFromOverlay() {
-    const btn = document.getElementById("overlayStartBtn");
-    btn.disabled = true; btn.textContent = "⏳ Starte...";
-    document.getElementById("sessionOverlay").style.display = "none";
-    await startSession();
+// ── Admin: KPIs ────────────────────────────────────────────────────────
+async function loadKPIs() {
+  try {
+    const [containers, users, teams, sessions] = await Promise.all([
+      api('/api/admin/containers'),
+      api('/api/admin/users'),
+      api('/api/admin/teams'),
+      api('/api/session/list'),
+    ]);
+    const running = sessions ? sessions.filter(s => s.status === 'running').length : 0;
+    document.getElementById('kpi-strip').innerHTML = [
+      {v: containers ? containers.length : 0, l: 'Container-Defs'},
+      {v: running, l: 'Laufende Sessions'},
+      {v: users ? users.length : 0, l: 'Nutzer'},
+      {v: teams ? teams.length : 0, l: 'Teams'},
+    ].map(k => `<div class="kpi"><div class="kpi-val">${k.v}</div><div class="kpi-label">${k.l}</div></div>`).join('');
+  } catch {}
 }
 
-
-// ── Admin ───────────────────────────────────────────────────────
-function switchTab(tab) {
-    document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
-    document.querySelectorAll(".tab").forEach(el => el.classList.remove("active"));
-    document.getElementById("tab-"+tab).classList.add("active");
-    const tabNames = ["users","teams","sessions","logging"];
-    const tabBtns  = document.querySelectorAll(".tab");
-    const idx = tabNames.indexOf(tab);
-    if (tabBtns[idx]) tabBtns[idx].classList.add("active");
-    if (tab === "users")    loadUsers();
-    if (tab === "teams")    loadTeams();
-    if (tab === "sessions") loadSessions();
-    if (tab === "logging")  loadRanking();
-}
-function toggleAdmin() {
-    const area = document.getElementById("adminArea");
-    area.classList.toggle("hidden");
-    const expanded = !area.classList.contains("hidden");
-    document.body.classList.toggle("admin-expanded", expanded);
-    _adminWasExpanded = expanded;
-    if (expanded) { loadUsers(); if (currentUser?.isadmin) loadTeams(); }
-}
-
-async function loadUsers() {
-    try {
-        allUsers = await api("/api/users");
-        allTeams = currentUser?.isadmin ? await api("/api/teams") : (currentUser?.admin_teams || []);
-        teamAdminMap = {};
-        if (currentUser?.isadmin) {
-            for (const team of allTeams) {
-                const admins = await api(`/api/teams/${team.id}/admins`);
-                for (const a of admins) {
-                    if (!teamAdminMap[a.id]) teamAdminMap[a.id] = [];
-                    teamAdminMap[a.id].push(team);
-                }
-            }
-        }
-        const filterTeam = document.getElementById("filterTeam");
-        filterTeam.innerHTML = "<option value=''>Alle Teams</option>";
-        allTeams.forEach(t => filterTeam.innerHTML += `<option value="${t.id}">${t.name}</option>`);
-        const newTeamSel = document.getElementById("newTeam");
-        newTeamSel.innerHTML = "<option value=''>-- Kein Team --</option>";
-        allTeams.forEach(t => newTeamSel.innerHTML += `<option value="${t.id}">${t.name}</option>`);
-        renderUsers();
-    } catch(e) { setStatus(e.message, true); }
+// ── Admin: Container ───────────────────────────────────────────────────
+async function loadAdminContainers() {
+  const tbody = document.getElementById('admin-containers-tbody');
+  try {
+    const defs = await api('/api/admin/containers');
+    tbody.innerHTML = defs.map(cd => `
+      <tr>
+        <td><strong>${esc(cd.name)}</strong></td>
+        <td style="font-size:var(--text-xs);color:var(--text-muted)">${esc(cd.image)}</td>
+        <td>${cd.internal_port}</td>
+        <td>${cd.cpu_limit || '—'}</td>
+        <td>${cd.mem_limit || '—'}</td>
+        <td><span class="badge badge-blue">${cd.env_vars ? cd.env_vars.length : 0} Vars</span></td>
+        <td>${cd.team_ids && cd.team_ids.length ? cd.team_ids.length + ' Teams' : 'Alle'}</td>
+        <td>${cd.is_default ? '<span class="badge badge-green">✓</span>' : ''}</td>
+        <td>
+          <div style="display:flex;gap:var(--space-2)">
+            <button class="btn btn-sm btn-secondary" onclick="openContainerModal(${cd.id})">Bearbeiten</button>
+            ${!cd.is_default ? `<button class="btn btn-sm btn-danger" onclick="deleteContainerDef(${cd.id})">Löschen</button>` : ''}
+          </div>
+        </td>
+      </tr>`).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="9" style="color:var(--error)">' + esc(e.message) + '</td></tr>';
+  }
 }
 
-function renderUsers() {
-    const filterName   = document.getElementById("filterUsername").value.toLowerCase();
-    const filterTeamId = document.getElementById("filterTeam").value;
-    const filtered = allUsers.filter(u => {
-        const matchName = u.username.toLowerCase().includes(filterName);
-        const matchTeam = !filterTeamId || String(u.team_id) === filterTeamId;
-        return matchName && matchTeam;
+async function openContainerModal(defId) {
+  allTeams = await api('/api/admin/teams') || [];
+  const checks = document.getElementById('team-checks');
+  checks.innerHTML = allTeams.length
+    ? allTeams.map(t => `
+        <label class="team-check">
+          <input type="checkbox" name="team" value="${t.id}"> ${esc(t.name)}
+        </label>`).join('')
+    : '<p style="font-size:var(--text-sm);color:var(--text-muted)">Keine Teams vorhanden.</p>';
+
+  document.getElementById('env-list').innerHTML = '';
+  document.getElementById('cdef-id').value = '';
+
+  if (defId) {
+    document.getElementById('modal-container-title').textContent = 'Container bearbeiten';
+    const cd = await api('/api/admin/containers/' + defId);
+    document.getElementById('cdef-id').value = cd.id;
+    document.getElementById('cdef-name').value = cd.name;
+    document.getElementById('cdef-image').value = cd.image;
+    document.getElementById('cdef-port').value = cd.internal_port;
+    document.getElementById('cdef-shm').value = cd.shm_size;
+    document.getElementById('cdef-cpu').value = cd.cpu_limit || '';
+    document.getElementById('cdef-mem').value = cd.mem_limit || '';
+    document.getElementById('cdef-restart').value = cd.restart_policy;
+    document.getElementById('cdef-desc').value = cd.description || '';
+    document.getElementById('cdef-default').checked = cd.is_default;
+    (cd.env_vars || []).forEach(ev => addEnvRow(ev.key, ev.value, ev.masked));
+    (cd.team_ids || []).forEach(tid => {
+      const cb = document.querySelector('#team-checks input[value="' + tid + '"]');
+      if (cb) cb.checked = true;
     });
-    document.getElementById("userCount").textContent = `${filtered.length} von ${allUsers.length} Benutzer`;
-    document.getElementById("userList").innerHTML = filtered.length === 0
-        ? "<div style='color:#666;font-size:13px'>Keine Treffer</div>"
-        : filtered.map(u => {
-            const teamName   = allTeams.find(t => t.id === u.team_id)?.name || "";
-            const adminTeams = teamAdminMap[u.id] || [];
-            const teamOpts   = allTeams.map(t =>
-                `<option value="${t.id}" ${t.id === u.team_id ? 'selected' : ''}>${t.name}</option>`
-            ).join("");
-            const canEdit = u.username !== "admin" && !u.isadmin;
-            return `<div class="item" id="user-item-${u.id}">
-                <div class="item-left">
-                    <div class="item-name">${u.username}</div>
-                    <div class="item-badges">
-                        ${u.isadmin ? '<span class="badge admin">SUPER</span>' : ''}
-                        ${teamName ? `<span class="badge team">${teamName}</span>` : ''}
-                        ${adminTeams.map(t => `<span class="badge teamadmin">Admin: ${t.name}</span>`).join('')}
-                    </div>
-                </div>
-                <div class="item-actions">
-                    ${canEdit ? `
-                        <button class="warn small" onclick="toggleEditUser(${u.id})" title="Bearbeiten">&#9998;</button>
-                        <button class="danger small" onclick="askDeleteUser(${u.id},'${u.username}')">&#10005;</button>
-                    ` : ''}
-                </div>
-                ${canEdit ? `
-                <div class="edit-inline-box hidden" id="edit-box-${u.id}">
-                    <div class="edit-row">
-                        <span style="font-size:12px;color:#aaa;white-space:nowrap">Team:</span>
-                        <select id="edit-team-${u.id}">
-                            <option value="">-- Kein Team --</option>
-                            ${teamOpts}
-                        </select>
-                        <button class="secondary" onclick="saveUserTeam(${u.id})">Speichern</button>
-                    </div>
-                    <div class="edit-row">
-                        <div class="pw-wrap" style="flex:1">
-                            <input id="edit-pw-${u.id}" type="password" placeholder="Neues Passwort">
-                            <button class="pw-eye" type="button" onclick="togglePw('edit-pw-${u.id}',this)" tabindex="-1">&#128065;</button>
-                        </div>
-                        <button class="secondary" onclick="saveUserPw(${u.id})">Ändern</button>
-                    </div>
-                </div>` : ''}
-            </div>`;
-        }).join("");
+  } else {
+    document.getElementById('modal-container-title').textContent = 'Container hinzufügen';
+    ['cdef-name','cdef-image','cdef-cpu','cdef-mem','cdef-desc'].forEach(id =>
+      document.getElementById(id).value = '');
+    document.getElementById('cdef-port').value = 5800;
+    document.getElementById('cdef-shm').value = '2g';
+    document.getElementById('cdef-restart').value = 'no';
+    document.getElementById('cdef-default').checked = false;
+  }
+  openModal('modal-container');
 }
 
-function toggleEditUser(id) {
-    const box = document.getElementById(`edit-box-${id}`);
-    box.classList.toggle("hidden");
+function addEnvRow(key='', value='', masked=false) {
+  const row = document.createElement('div');
+  row.className = 'env-row';
+  row.innerHTML = `
+    <input type="text" placeholder="KEY" value="${esc(key)}" class="env-key">
+    <input type="${masked ? 'password' : 'text'}" placeholder="value" value="${esc(value)}" class="env-val">
+    <label class="masked-toggle">
+      <input type="checkbox" ${masked ? 'checked' : ''} onchange="this.closest('.env-row').querySelector('.env-val').type=this.checked?'password':'text'">
+      🔒
+    </label>
+    <button type="button" class="btn btn-icon btn-ghost" onclick="this.closest('.env-row').remove()" aria-label="Entfernen">✕</button>`;
+  document.getElementById('env-list').appendChild(row);
 }
 
-async function saveUserTeam(id) {
-    const teamId = document.getElementById(`edit-team-${id}`).value;
-    try {
-        await api(`/api/users/${id}`, "PATCH", { team_id: teamId ? parseInt(teamId) : null });
-        setStatus("Team aktualisiert");
-        loadUsers();
-    } catch(e) { setStatus(e.message, true); }
+async function saveContainer(e) {
+  e.preventDefault();
+  const defId = document.getElementById('cdef-id').value;
+  const envVars = [...document.querySelectorAll('#env-list .env-row')].map(row => ({
+    key: row.querySelector('.env-key').value.trim(),
+    value: row.querySelector('.env-val').value,
+    masked: row.querySelector('input[type=checkbox]').checked,
+  })).filter(ev => ev.key);
+  const teamIds = [...document.querySelectorAll('#team-checks input[type=checkbox]:checked')]
+    .map(cb => parseInt(cb.value));
+  const payload = {
+    name: document.getElementById('cdef-name').value.trim(),
+    image: document.getElementById('cdef-image').value.trim(),
+    internal_port: parseInt(document.getElementById('cdef-port').value) || 5800,
+    shm_size: document.getElementById('cdef-shm').value.trim() || '2g',
+    cpu_limit: parseFloat(document.getElementById('cdef-cpu').value) || null,
+    mem_limit: document.getElementById('cdef-mem').value.trim() || null,
+    restart_policy: document.getElementById('cdef-restart').value,
+    description: document.getElementById('cdef-desc').value.trim() || null,
+    is_default: document.getElementById('cdef-default').checked,
+    env_vars: envVars,
+    team_ids: teamIds,
+  };
+  try {
+    if (defId) {
+      await api('/api/admin/containers/' + defId, {method:'PUT', body:JSON.stringify(payload)});
+      toast('Container aktualisiert.', 'ok');
+    } else {
+      await api('/api/admin/containers', {method:'POST', body:JSON.stringify(payload)});
+      toast('Container erstellt.', 'ok');
+    }
+    closeModal('modal-container');
+    loadAdminContainers();
+    loadContainerDefs();
+    loadKPIs();
+  } catch(e) { toast(e.message, 'error'); }
 }
 
-async function saveUserPw(id) {
-    const pw = document.getElementById(`edit-pw-${id}`).value.trim();
-    if (!pw) return setStatus("Bitte ein neues Passwort eingeben", true);
-    try {
-        await api(`/api/users/${id}`, "PATCH", { password: pw });
-        setStatus("Passwort geändert");
-        document.getElementById(`edit-pw-${id}`).value = "";
-    } catch(e) { setStatus(e.message, true); }
+async function deleteContainerDef(id) {
+  if (!confirm('Container-Definition wirklich löschen?')) return;
+  try {
+    await api('/api/admin/containers/' + id, {method:'DELETE'});
+    toast('Gelöscht.', 'ok');
+    loadAdminContainers();
+    loadContainerDefs();
+    loadKPIs();
+  } catch(e) { toast(e.message, 'error'); }
 }
 
-async function addUser() {
-    const username = document.getElementById("newUsername").value.trim();
-    const password = document.getElementById("newPassword").value.trim();
-    const team_id  = document.getElementById("newTeam").value || null;
-    const isadmin  = document.getElementById("newIsAdmin")?.checked || false;
-    if (!username || !password) return setStatus("Bitte Benutzername und Passwort eingeben", true);
-    try {
-        await api("/api/users", "POST", { username, password, isadmin, team_id: team_id ? parseInt(team_id) : null });
-        document.getElementById("newUsername").value = "";
-        document.getElementById("newPassword").value = "";
-        if (document.getElementById("newIsAdmin")) document.getElementById("newIsAdmin").checked = false;
-        loadUsers();
-        setStatus("User angelegt: " + username);
-    } catch(e) { setStatus(e.message, true); }
+// ── Admin: Nutzer ──────────────────────────────────────────────────────
+async function loadAdminUsers() {
+  const tbody = document.getElementById('admin-users-tbody');
+  try {
+    const [users, teams] = await Promise.all([api('/api/admin/users'), api('/api/admin/teams')]);
+    const teamMap = Object.fromEntries((teams||[]).map(t => [t.id, t.name]));
+    tbody.innerHTML = (users||[]).map(u => `
+      <tr>
+        <td>${esc(u.username)}</td>
+        <td>${u.isadmin ? '<span class="badge badge-blue">Admin</span>' : '<span class="badge">Nutzer</span>'}</td>
+        <td>${u.team_id ? esc(teamMap[u.team_id] || '?') : '<span style="color:var(--text-faint)">—</span>'}</td>
+        <td style="font-size:var(--text-xs);color:var(--text-muted)">${fmtDate(u.created_at)}</td>
+        <td><button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id},'${esc(u.username)}')">Löschen</button></td>
+      </tr>`).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--error)">' + esc(e.message) + '</td></tr>';
+  }
 }
 
-
-// ── Bestätigungsdialog User löschen ────────────────────────────
-let _deleteUserId   = null;
-let _deleteUsername = "";
-
-function askDeleteUser(id, username) {
-    _deleteUserId   = id;
-    _deleteUsername = username;
-    document.getElementById("confirm-msg").textContent =
-        `Bitte gib "${username}" zur Bestätigung ein:`;
-    const inp = document.getElementById("confirm-input");
-    inp.value = "";
-    document.getElementById("confirm-ok-btn").disabled = true;
-    document.getElementById("confirm-modal").classList.add("show");
-    setTimeout(() => inp.focus(), 50);
-}
-document.getElementById("confirm-input").addEventListener("input", function() {
-    document.getElementById("confirm-ok-btn").disabled =
-        this.value.trim() !== _deleteUsername;
-});
-document.getElementById("confirm-input").addEventListener("keydown", e => {
-    if (e.key === "Enter" && !document.getElementById("confirm-ok-btn").disabled) confirmDeleteUser();
-    if (e.key === "Escape") closeConfirm();
-});
-function closeConfirm() {
-    document.getElementById("confirm-modal").classList.remove("show");
-    _deleteUserId = null; _deleteUsername = "";
-}
-async function confirmDeleteUser() {
-    if (!_deleteUserId) return;
-    const id = _deleteUserId;
-    closeConfirm();
-    try {
-        await api(`/api/users/${id}`, "DELETE");
-        loadUsers(); setStatus("User gelöscht");
-    } catch(e) { setStatus(e.message, true); }
+async function openNewUserModal() {
+  const teams = await api('/api/admin/teams') || [];
+  const sel = document.getElementById('new-user-team');
+  sel.innerHTML = '<option value="">— kein Team —</option>' +
+    teams.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+  openModal('modal-user');
 }
 
-
-// ── Teams ───────────────────────────────────────────────────────
-async function loadTeams() {
-    try {
-        const teams = await api("/api/teams");
-        document.getElementById("teamList").innerHTML = teams.length === 0
-            ? "<div style='color:#666;font-size:13px'>Keine Teams</div>"
-            : teams.map(t => `<div class="item">
-                <div class="item-left"><div class="item-name">${t.name}</div></div>
-                <button class="danger small" onclick="deleteTeam(${t.id})">&#10005;</button>
-            </div>`).join("");
-        const taTeam = document.getElementById("taTeam");
-        taTeam.innerHTML = "";
-        teams.forEach(t => taTeam.innerHTML += `<option value="${t.id}">${t.name}</option>`);
-        taTeam._allOptions = Array.from(taTeam.options).map(o => ({v:o.value, t:o.text}));
-        const allU = await api("/api/users");
-        const taUser = document.getElementById("taUser");
-        taUser.innerHTML = "";
-        allU.filter(u => !u.isadmin).forEach(u => taUser.innerHTML += `<option value="${u.id}">${u.username}</option>`);
-        taUser._allOptions = Array.from(taUser.options).map(o => ({v:o.value, t:o.text}));
-    } catch(e) { setStatus(e.message, true); }
+async function createUser(e) {
+  e.preventDefault();
+  try {
+    await api('/api/admin/users', {method:'POST', body: JSON.stringify({
+      username: document.getElementById('new-username').value.trim(),
+      password: document.getElementById('new-password').value,
+      isadmin: document.getElementById('new-isadmin').checked,
+      team_id: parseInt(document.getElementById('new-user-team').value) || null,
+    })});
+    toast('Nutzer angelegt.', 'ok');
+    closeModal('modal-user');
+    loadAdminUsers();
+    loadKPIs();
+  } catch(e) { toast(e.message, 'error'); }
 }
-function filterSelect(selectId, searchId) {
-    const sel   = document.getElementById(selectId);
-    const query = document.getElementById(searchId).value.toLowerCase();
-    if (!sel._allOptions) return;
-    sel.innerHTML = "";
-    sel._allOptions.filter(o => o.t.toLowerCase().includes(query)).forEach(o => {
-        const opt = document.createElement("option");
-        opt.value = o.v; opt.text = o.t; sel.appendChild(opt);
+
+async function deleteUser(id, name) {
+  if (!confirm('Nutzer "' + name + '" löschen?')) return;
+  try {
+    await api('/api/admin/users/' + id, {method:'DELETE'});
+    toast('Nutzer gelöscht.', 'ok');
+    loadAdminUsers();
+    loadKPIs();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Admin: Teams ───────────────────────────────────────────────────────
+async function loadAdminTeams() {
+  const tbody = document.getElementById('admin-teams-tbody');
+  try {
+    const [teams, users, containers] = await Promise.all([
+      api('/api/admin/teams'), api('/api/admin/users'), api('/api/admin/containers')
+    ]);
+    tbody.innerHTML = (teams||[]).map(t => {
+      const members = (users||[]).filter(u => u.team_id === t.id).length;
+      const assigned = (containers||[]).filter(c => c.team_ids && c.team_ids.includes(t.id)).length;
+      return `<tr>
+        <td><strong>${esc(t.name)}</strong></td>
+        <td>${members}</td>
+        <td>${assigned || '<span style="color:var(--text-faint)">alle</span>'}</td>
+        <td><button class="btn btn-sm btn-danger" onclick="deleteTeam(${t.id},'${esc(t.name)}')">Löschen</button></td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="4" style="color:var(--error)">' + esc(e.message) + '</td></tr>';
+  }
+}
+
+function openNewTeamModal() { openModal('modal-team'); }
+
+async function createTeam(e) {
+  e.preventDefault();
+  try {
+    await api('/api/admin/teams', {method:'POST', body: JSON.stringify({
+      name: document.getElementById('new-teamname').value.trim()
+    })});
+    toast('Team angelegt.', 'ok');
+    closeModal('modal-team');
+    loadAdminTeams();
+    loadKPIs();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function deleteTeam(id, name) {
+  if (!confirm('Team "' + name + '" löschen?')) return;
+  try {
+    await api('/api/admin/teams/' + id, {method:'DELETE'});
+    toast('Team gelöscht.', 'ok');
+    loadAdminTeams();
+    loadKPIs();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Admin: Alle Sessions ───────────────────────────────────────────────
+async function loadAdminSessions() {
+  const tbody = document.getElementById("admin-sessions-tbody");
+  try {
+    const sessions = await api("/api/session/list");
+    if (!sessions || !sessions.length) {
+      tbody.innerHTML = "<tr><td colspan='5' style='color:var(--text-muted);text-align:center;padding:var(--space-8)'>Keine Sessions.</td></tr>";
+      return;
+    }
+    tbody.innerHTML = sessions.map(s => `
+      <tr>
+        <td>${esc(s.username)}</td>
+        <td>
+           <div><strong>${esc(s.container_name)}</strong></div>
+           <div style="font-size:var(--text-xs);color:var(--text-muted)">${esc(s.image || "Unbekannt")}</div>
+        </td>
+        <td><span class="badge ${s.status === 'running' ? 'badge-green' : 'badge-red'}">${esc(s.status)}</span></td>
+        <td>${fmtDate(s.created_at)}</td>
+        <td>
+           ${s.status === 'running' ? `<button class="btn btn-sm btn-danger" onclick="stopSession('${s.id}')">Stoppen</button>` : `<button class="btn btn-sm btn-ghost" onclick="deleteSession('${s.id}')">Entfernen</button>`}
+        </td>
+      </tr>
+    `).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--error);text-align:center">' + esc(e.message) + '</td></tr>';
+  }
+}
+
+// ── Admin: Audit-Log ───────────────────────────────────────────────────
+// ── Log / Ranking ────────────────────────────────────────────────────────
+function showPeriodFields(prefix) {
+    const p = document.getElementById(prefix + "period").value;
+    ["year", "month", "week", "day"].forEach(f => {
+        document.getElementById(prefix + f).style.display = "none";
     });
-}
-async function addTeam() {
-    const name = document.getElementById("newTeamName").value.trim();
-    if (!name) return setStatus("Bitte Teamname eingeben", true);
-    try {
-        await api("/api/teams","POST",{name});
-        document.getElementById("newTeamName").value = "";
-        loadTeams(); loadUsers(); setStatus("Team angelegt: " + name);
-    } catch(e) { setStatus(e.message, true); }
-}
-async function deleteTeam(id) {
-    if (!confirm("Team wirklich löschen?")) return;
-    try {
-        await api(`/api/teams/${id}`,"DELETE");
-        loadTeams(); loadUsers(); setStatus("Team gelöscht");
-    } catch(e) { setStatus(e.message, true); }
-}
-async function assignTeamAdmin() {
-    const team_id = parseInt(document.getElementById("taTeam").value);
-    const user_id = parseInt(document.getElementById("taUser").value);
-    if (!team_id || !user_id) return setStatus("Bitte Team und User wählen", true);
-    try {
-        await api(`/api/teams/${team_id}/admins`,"POST",{user_id});
-        loadUsers(); setStatus("Team-Admin zugewiesen");
-    } catch(e) { setStatus(e.message, true); }
+    if (p === "year")  document.getElementById(prefix + "year").style.display = "block";
+    if (p === "month") {
+        document.getElementById(prefix + "year").style.display = "block";
+        document.getElementById(prefix + "month").style.display = "block";
+    }
+    if (p === "week") {
+        document.getElementById(prefix + "year").style.display = "block";
+        document.getElementById(prefix + "week").style.display = "block";
+    }
+    if (p === "day")   document.getElementById(prefix + "day").style.display = "block";
 }
 
-
-// ── Sessions ────────────────────────────────────────────────────
-async function loadSessions() {
-    try {
-        const sessions = await api("/api/sessions");
-        if (!sessions.length) {
-            document.getElementById("sessionList").innerHTML =
-                "<div style='color:#666;font-size:13px'>Keine aktiven Sessions</div>";
-            return;
-        }
-        document.getElementById("sessionList").innerHTML = sessions.map(s => {
-            const since    = new Date(s.created_at*1000).toLocaleString('de-DE');
-            const lastSeen = new Date(s.last_seen*1000).toLocaleTimeString('de-DE');
-            return `<div class="session-item">
-                <div class="s-user">&#128100; ${s.username} <span class="badge active">&#9679; aktiv</span></div>
-                <div class="s-meta">Container: ${s.container_name}</div>
-                <div class="s-meta">IP: ${s.container_ip||'–'}</div>
-                <div class="s-meta">Gestartet: ${since}</div>
-                <div class="s-meta">Zuletzt aktiv: ${lastSeen}</div>
-            </div>`;
-        }).join("");
-    } catch(e) { setStatus(e.message, true); }
-}
-
-
-// ══════════════════════════════════════════════════════════════════
-// LOGGING
-// ══════════════════════════════════════════════════════════════════
-let _rankMode = "users"; // "users" | "teams"
-
-function setRankMode(mode) {
-    _rankMode = mode;
-    document.getElementById("rankModeUsers").classList.toggle("active", mode === "users");
-    document.getElementById("rankModeTeams").classList.toggle("active", mode === "teams");
-    // Spaltenheader anpassen
-    document.getElementById("ranking-head").innerHTML = mode === "users"
-        ? `<tr><th style="width:32px">#</th><th>Nutzer</th><th style="text-align:right">Sitzungen</th><th style="text-align:right">Gesamtzeit</th></tr>`
-        : `<tr><th style="width:32px">#</th><th>Team</th><th style="text-align:right">Sitzungen</th><th style="text-align:right">Gesamtzeit</th></tr>`;
-    loadRanking();
-}
-
-function fmtDuration(sec) {
-    sec = Math.round(sec||0);
-    const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
-    if (h>0) return `${h}h ${m}m`;
-    if (m>0) return `${m}m ${s}s`;
-    return `${s}s`;
-}
-function fmtTs(ts) { return new Date(ts*1000).toLocaleString("de-DE"); }
+function onLogPeriodChange() { showPeriodFields("log-"); loadRanking(); }
 
 function buildLogParams(prefix) {
-    const period = document.getElementById(prefix+"period").value;
-    const p = new URLSearchParams({period});
-    if (period==="day")   p.set("day",   document.getElementById(prefix+"day").value);
-    if (period==="week")  { p.set("year", document.getElementById(prefix+"year").value);
-                            p.set("week", document.getElementById(prefix+"week").value); }
-    if (period==="month") { p.set("year", document.getElementById(prefix+"year").value);
-                            p.set("month",document.getElementById(prefix+"month").value); }
-    if (period==="year")  p.set("year",  document.getElementById(prefix+"year").value);
-    return p;
+    const p = document.getElementById(prefix + "period").value;
+    let qs = "period=" + p;
+    if (p === "year" || p === "month" || p === "week") {
+        const y = document.getElementById(prefix + "year").value;
+        if (y) qs += "&year=" + y;
+    }
+    if (p === "month") {
+        const m = document.getElementById(prefix + "month").value;
+        if (m) qs += "&month=" + m;
+    }
+    if (p === "week") {
+        const w = document.getElementById(prefix + "week").value;
+        if (w) qs += "&week=" + w;
+    }
+    if (p === "day") {
+        const d = document.getElementById(prefix + "day").value;
+        if (d) qs += "&day=" + d;
+    }
+    return qs;
 }
-function showPeriodFields(prefix) {
-    const period = document.getElementById(prefix+"period").value;
-    document.getElementById(prefix+"year").style.display  = ["week","month","year"].includes(period) ? "" : "none";
-    document.getElementById(prefix+"month").style.display = period==="month" ? "" : "none";
-    document.getElementById(prefix+"week").style.display  = period==="week"  ? "" : "none";
-    document.getElementById(prefix+"day").style.display   = period==="day"   ? "" : "none";
+
+function fmtDuration(seconds) {
+    if (!seconds) return "0s";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    let res = [];
+    if (h > 0) res.push(h + "h");
+    if (m > 0) res.push(m + "m");
+    if (s > 0 || res.length === 0) res.push(s + "s");
+    return res.join(" ");
 }
-function onLogPeriodChange()    { showPeriodFields("log-");    loadRanking(); }
-function onDetailPeriodChange() { showPeriodFields("detail-"); loadUserDetail(); }
+
+async function loadAdminLog() { loadRanking(); }
 
 async function loadRanking() {
-    const params = buildLogParams("log-");
-    const tbody  = document.getElementById("ranking-body");
-    tbody.innerHTML = "<tr><td colspan='4' style='color:#666;padding:10px'>Lade...</td></tr>";
-    try {
-        let endpoint, data;
-        if (_rankMode === "teams") {
-            endpoint = "/api/admin/logging/ranking/teams?" + params;
-            data = await api(endpoint);
-            if (!data.length) {
-                tbody.innerHTML = "<tr><td colspan='4' style='color:#666;padding:10px'>Keine Daten.</td></tr>";
-                return;
-            }
-            tbody.innerHTML = data.map((row,i) => `
-                <tr>
-                    <td>${i+1}</td>
-                    <td>${row.team_name || '–'}</td>
-                    <td style="text-align:right">${row.session_count}</td>
-                    <td style="text-align:right">${fmtDuration(row.total_seconds)}</td>
-                </tr>`).join("");
-        } else {
-            endpoint = "/api/admin/logging/ranking?" + params;
-            data = await api(endpoint);
-            if (!data.length) {
-                tbody.innerHTML = "<tr><td colspan='4' style='color:#666;padding:10px'>Keine Daten.</td></tr>";
-                return;
-            }
-            tbody.innerHTML = data.map((row,i) => `
-                <tr>
-                    <td>${i+1}</td>
-                    <td><a href="#" onclick="openUserDetail(${row.user_id},'${row.username}');return false">${row.username}</a></td>
-                    <td style="text-align:right">${row.session_count}</td>
-                    <td style="text-align:right">${fmtDuration(row.total_seconds)}</td>
-                </tr>`).join("");
-        }
-    } catch(e) {
-        tbody.innerHTML = `<tr><td colspan='4' style='color:#f66;padding:10px'>${e.message}</td></tr>`;
+  const params = buildLogParams("log-");
+  const tbody = document.getElementById("admin-log-tbody");
+  tbody.innerHTML = "<tr><td colspan='4' style='color:var(--text-muted);text-align:center'>Lädt…</td></tr>";
+  try {
+    const data = await api("/api/admin/logging/ranking?" + params) || [];
+    if (!data.length) {
+      tbody.innerHTML = "<tr><td colspan='4' style='color:var(--text-muted);text-align:center'>Keine Daten gefunden.</td></tr>";
+      return;
     }
+    tbody.innerHTML = data.map((r, i) => `
+      <tr>
+        <td style="color:var(--text-muted)">${i + 1}</td>
+        <td><a href="#" onclick="openUserDetail(${r.user_id}, '${esc(r.username)}');return false" style="color:var(--primary);text-decoration:none;font-weight:500">${esc(r.username)}</a></td>
+        <td style="text-align:right">${r.session_count}</td>
+        <td style="text-align:right">${fmtDuration(r.total_seconds)}</td>
+      </tr>`).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="4" style="color:var(--error);text-align:center">' + esc(e.message) + '</td></tr>';
+  }
 }
 
-
-// ── Nutzer-Detail Modal ─────────────────────────────────────────
-let _detailUserId = null, _detailUsername = "";
-
+let _detailUserId = null;
 async function openUserDetail(userId, username) {
-    _detailUserId = userId; _detailUsername = username;
+    _detailUserId = userId;
     document.getElementById("detail-title").textContent = `Sitzungen: ${username}`;
     document.getElementById("detail-period").value = "all";
     showPeriodFields("detail-");
-    document.getElementById("user-detail-modal").style.display = "block";
+    openModal("user-detail-modal");
     await loadUserDetail();
 }
-function closeUserDetail() { document.getElementById("user-detail-modal").style.display = "none"; }
-document.getElementById("user-detail-modal").addEventListener("click", function(e) {
-    if (e.target === this) closeUserDetail();
-});
+
 async function loadUserDetail() {
     if (!_detailUserId) return;
     const params = buildLogParams("detail-");
-    const tbody  = document.getElementById("detail-body");
-    tbody.innerHTML = "<tr><td colspan='5' style='color:#666;padding:10px'>Lade...</td></tr>";
+    const tbody = document.getElementById("detail-body");
+    tbody.innerHTML = "<tr><td colspan='4' style='color:var(--text-muted);text-align:center'>Lädt…</td></tr>";
     document.getElementById("detail-total").textContent = "";
     try {
-        const data = await api(`/api/admin/logging/user/${_detailUserId}?`+params);
+        const data = await api(`/api/admin/logging/user/${_detailUserId}?` + params) || [];
         if (!data.length) {
-            tbody.innerHTML = "<tr><td colspan='5' style='color:#666;padding:10px'>Keine Sitzungen gefunden.</td></tr>";
+            tbody.innerHTML = "<tr><td colspan='4' style='color:var(--text-muted);text-align:center'>Keine Sitzungen.</td></tr>";
             return;
         }
         let totalSec = 0;
-        tbody.innerHTML = data.map(row => {
-            totalSec += row.duration||0;
+        tbody.innerHTML = data.map(r => {
+            totalSec += r.duration || 0;
             return `<tr>
-                <td>${fmtTs(row.started_at)}</td>
-                <td>${fmtTs(row.ended_at)}</td>
-                <td style="text-align:right">${fmtDuration(row.duration)}</td>
-                <td style="color:#666;font-size:11px">${row.container_ip||'–'}</td>
-                <td style="font-family:monospace;font-size:12px">${row.container_name}</td>
+              <td style="font-size:var(--text-xs);color:var(--text-muted)">${esc(r.image || 'Unbekannt')}</td>
+              <td>${esc(r.container_name)}</td>
+              <td>${fmtDate(r.started_at)}</td>
+              <td>${fmtDuration(r.duration)}</td>
             </tr>`;
-        }).join("");
-        document.getElementById("detail-total").textContent =
-            `Gesamt: ${data.length} Sitzung(en) · ${fmtDuration(totalSec)}`;
+        }).join('');
+        document.getElementById("detail-total").textContent = `Gesamtdauer: ${fmtDuration(totalSec)}`;
     } catch(e) {
-        tbody.innerHTML = `<tr><td colspan='5' style='color:#f66;padding:10px'>${e.message}</td></tr>`;
+        tbody.innerHTML = '<tr><td colspan="4" style="color:var(--error);text-align:center">' + esc(e.message) + '</td></tr>';
     }
 }
 
 
-// ── Container-Suche ─────────────────────────────────────────────
-async function searchContainer() {
-    const name = document.getElementById("container-search-input").value.trim();
-    const div  = document.getElementById("container-result");
-    if (!name) { div.innerHTML = "<span style='color:#888;font-size:13px'>Bitte Container-Namen eingeben.</span>"; return; }
-    div.innerHTML = "<span style='color:#666;font-size:13px'>Suche...</span>";
-    try {
-        const data = await api(`/api/admin/logging/container/${encodeURIComponent(name)}`);
-        if (!data.length) {
-            div.innerHTML = `<span style='color:#888;font-size:13px'>Kein Nutzer für <code>${name}</code> gefunden.</span>`;
-            return;
-        }
-        div.innerHTML = `<table class="log-table" style="margin-top:6px">
-            <thead><tr><th>Nutzer</th><th style="text-align:right">Sitzungen</th><th style="text-align:right">Gesamtzeit</th></tr></thead>
-            <tbody>${data.map(r=>`
-                <tr>
-                    <td><a href="#" onclick="openUserDetail(${r.user_id},'${r.username}');return false">${r.username}</a></td>
-                    <td style="text-align:right">${r.session_count}</td>
-                    <td style="text-align:right">${fmtDuration(r.total_seconds)}</td>
-                </tr>`).join("")}
-            </tbody>
-        </table>`;
-    } catch(e) { div.innerHTML = `<span style='color:#f66;font-size:13px'>${e.message}</span>`; }
+function exportLog() {
+  const rows = [['Zeit','Nutzer','Aktion','Container','Details']];
+  logData.forEach(l => rows.push([l.created_at, l.username, l.action, l.container_name||'', l.details||'']));
+  const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'vbrowser-log.csv';
+  a.click();
 }
-document.getElementById("container-search-input").addEventListener("keydown", e => {
-    if (e.key === "Enter") searchContainer();
-});
 
+// ── Utilities ──────────────────────────────────────────────────────────
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtDate(s) {
+  if (!s) return '—';
+  return new Date(s + (s.endsWith('Z') ? '' : 'Z')).toLocaleString('de-DE', {
+    day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'
+  });
+}
 </script>
 </body>
-</html>
-"""
+</html>"""

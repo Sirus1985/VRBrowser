@@ -14,3 +14,4 @@ CERT_RESOLVER = os.getenv("CERT_RESOLVER", "")
 SESSION_TIMEOUT = int(os.getenv("SESSION_TIMEOUT", "300"))
 PROFILES_BASE = os.getenv("PROFILES_BASE", "/opt/vbrowser/profiles")  # NEU
 BROWSER_DNS = [s.strip() for s in os.getenv("BROWSER_DNS", "").split(",") if s.strip()]
+MAX_SESSION_DURATION = int(os.getenv("MAX_SESSION_DURATION", "0"))  # 0 = deaktiviert

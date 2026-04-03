@@ -1,4 +1,5 @@
 import logging
+import threading
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
@@ -10,10 +11,10 @@ from routes.users import router as users_router
 from routes.teams import router as teams_router
 from routes.sessions import router as sessions_router
 from routes.admin_logging import router as admin_logging_router
-from frontend import get_html
-
+from routes.containers import router as containers_admin_router
+from routes.containers import user_router as containers_user_router
 from session_manager import cleanup_loop
-import threading
+from frontend import get_html
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,6 +28,8 @@ app.include_router(users_router)
 app.include_router(teams_router)
 app.include_router(sessions_router)
 app.include_router(admin_logging_router)
+app.include_router(containers_admin_router)
+app.include_router(containers_user_router)
 
 
 @app.on_event("startup")
