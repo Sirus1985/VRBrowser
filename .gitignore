@@ -6,3 +6,5 @@ browser.db
 adguard/
 */__pycache__/
 routes/__pycache__/
+/routes/__pycache__/*
+/routes/__pycache__
