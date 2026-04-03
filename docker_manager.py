@@ -5,9 +5,6 @@ from config import PROFILES_BASE, PROXY_NETWORK, DOCKERHOST, BASE_DOMAIN
 
 logger = logging.getLogger(__name__)
 
-# Fallback auf 'web' (Port 80), da Cloudflare den Traffic auf Port 80 an Traefik reicht
-ENTRYPOINT = os.getenv("TRAEFIK_ENTRYPOINT", "web")
-
 try:
     client = docker.DockerClient(base_url=DOCKERHOST)
 except Exception as e:
@@ -22,58 +19,49 @@ def get_profile_path(username: str, container_def_id: int = None) -> str:
     return path
 
 
-def create_container(username: str, session_id: str, token: str,
-                     container_def: dict) -> docker.models.containers.Container:
-    
-    safe_username = "".join([c for c in username if c.isalnum()])
+def create_container(username: str, session_id: str, token: str, container_def: dict):
+    safe_username = "".join(c for c in username if c.isalnum())
     container_name = f"vbrowser-{safe_username}-{session_id[:8]}"
-    
-    internal_port  = container_def.get("internal_port", 5800)
-    def_id         = container_def.get("id")
-    profile_path   = get_profile_path(username, def_id)
+
+    internal_port = int(container_def.get("internal_port", 5800))
+    def_id = container_def.get("id")
+    profile_path = get_profile_path(username, def_id)
 
     env = {"TOKEN": token}
     for ev in container_def.get("env_vars", []):
         env[ev["key"]] = ev["value"]
 
     host = f"{session_id[:8]}.{BASE_DOMAIN}" if BASE_DOMAIN else f"{session_id[:8]}.localhost"
-    
     router = f"vbrowser-{session_id[:8]}"
     service = f"vbrowser-{session_id[:8]}"
 
+    labels = {
+        "traefik.enable": "true",
+        "traefik.docker.network": PROXY_NETWORK,
+
+        f"traefik.http.routers.{router}.rule": f"Host(`{host}`)",
+        f"traefik.http.routers.{router}.entrypoints": "web",
+        f"traefik.http.routers.{router}.service": service,
+        f"traefik.http.routers.{router}.priority": "10",
+
+        f"traefik.http.services.{service}.loadbalancer.server.port": str(internal_port),
+
+        f"traefik.http.routers.{router}-setcookie.rule": f"Host(`{host}`) && Path(`/auth/set-cookie`)",
+        f"traefik.http.routers.{router}-setcookie.entrypoints": "web",
+        f"traefik.http.routers.{router}-setcookie.service": "vbrowser-backend@docker",
+        f"traefik.http.routers.{router}-setcookie.priority": "20",
+    }
+
     kwargs = {
-        "image":          container_def["image"],
-        "name":           container_name,
-        "detach":         True,
-        "environment":    env,
-        "volumes":        {profile_path: {"bind": "/config", "mode": "rw"}},
-        "shm_size":       container_def.get("shm_size", "2g"),
-        "network":        PROXY_NETWORK,
+        "image": container_def["image"],
+        "name": container_name,
+        "detach": True,
+        "environment": env,
+        "volumes": {profile_path: {"bind": "/config", "mode": "rw"}},
+        "shm_size": container_def.get("shm_size", "2g"),
+        "network": PROXY_NETWORK,
         "restart_policy": {"Name": container_def.get("restart_policy", "no")},
-        "labels": {
-            "traefik.enable": "true",
-            "traefik.docker.network": PROXY_NETWORK,
-            
-            # 1) Haupt-Router für den Browser
-            f"traefik.http.routers.{router}.rule": f"Host(`{host}`)",
-            f"traefik.http.routers.{router}.entrypoints": ENTRYPOINT,
-            # WICHTIG: Dies zielt auf die Middleware aus der Datei traefik-dynamic.yml
-            f"traefik.http.routers.{router}.middlewares": "vbrowser-auth@file",
-            f"traefik.http.routers.{router}.priority": "10",
-            f"traefik.http.services.{service}.loadbalancer.server.port": str(internal_port),
-            
-            # 2) Auth-/Cookie-Router (wichtig für den Redirect im Frontend)
-            f"traefik.http.routers.{router}-setcookie.rule": f"Host(`{host}`) && Path(`/auth/set-cookie`)",
-            f"traefik.http.routers.{router}-setcookie.entrypoints": ENTRYPOINT,
-            f"traefik.http.routers.{router}-setcookie.service": "vbrowser-backend@docker",
-            f"traefik.http.routers.{router}-setcookie.priority": "20",
-            
-            # 3) Auth-Verify Router (wird von der Middleware aufgerufen)
-            f"traefik.http.routers.{router}-verify.rule": f"Host(`{host}`) && Path(`/auth/verify`)",
-            f"traefik.http.routers.{router}-verify.entrypoints": ENTRYPOINT,
-            f"traefik.http.routers.{router}-verify.service": "vbrowser-backend@docker",
-            f"traefik.http.routers.{router}-verify.priority": "20",
-        },
+        "labels": labels,
     }
 
     cpu_limit = container_def.get("cpu_limit")
@@ -88,7 +76,7 @@ def create_container(username: str, session_id: str, token: str,
     return client.containers.run(**kwargs)
 
 
-def get_container_ip(container: docker.models.containers.Container) -> str | None:
+def get_container_ip(container):
     try:
         container.reload()
         networks = container.attrs.get("NetworkSettings", {}).get("Networks", {})
@@ -118,5 +106,5 @@ def container_exists(container_name: str) -> bool:
     try:
         client.containers.get(container_name)
         return True
-    except:
+    except Exception:
         return False
