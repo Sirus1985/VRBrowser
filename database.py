@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import time
+import json
 from typing import Optional
 from config import DBPATH
 
@@ -98,9 +99,21 @@ def initdb():
     except sqlite3.OperationalError:
         pass
 
+    # --- FEHLENDE CONTAINER DEFS TABELLE HINZUGEFÜGT ---
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS container_defs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            image TEXT NOT NULL,
+            tag TEXT NOT NULL,
+            is_default INTEGER DEFAULT 0,
+            team_ids TEXT
+        )
+    """)
+
     cur.execute("CREATE INDEX IF NOT EXISTS idx_log_user    ON session_log(user_id)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_log_started ON session_log(started_at)")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_log_ip      ON session_log(container_ip)")  # ← NEU
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_log_ip      ON session_log(container_ip)")
 
     cur.execute(
         "INSERT OR IGNORE INTO users (username, password, isadmin) VALUES (?, ?, ?)",
@@ -152,6 +165,22 @@ def db_add_user(username: str, password: str, isadmin: bool, team_id: Optional[i
         )
         conn.commit()
 
+# --- FEHLENDE DB_UPDATE_USER FUNKTION HINZUGEFÜGT ---
+def db_update_user(userid: int, data: dict):
+    if not data:
+        return
+    fields = []
+    values = []
+    for k, v in data.items():
+        fields.append(f"{k}=?")
+        values.append(v)
+    values.append(userid)
+    
+    query = f"UPDATE users SET {', '.join(fields)} WHERE id=?"
+    with get_conn() as conn:
+        conn.execute(query, values)
+        conn.commit()
+
 def db_delete_user(userid: int):
     with get_conn() as conn:
         conn.execute("DELETE FROM users WHERE id=?", (userid,))
@@ -171,22 +200,6 @@ def db_get_user_settings(user_id: int) -> dict:
             "SELECT auto_start_session FROM users WHERE id=?", (user_id,)
         ).fetchone()
         return dict(row) if row else {"auto_start_session": 0}
-
-def db_update_user(userid: int, data: dict):
-    if not data:
-        return
-    fields = []
-    values = []
-    for k, v in data.items():
-        fields.append(f"{k}=?")
-        values.append(v)
-    values.append(userid)
-    
-    query = f"UPDATE users SET {', '.join(fields)} WHERE id=?"
-    with get_conn() as conn:
-        conn.execute(query, values)
-        conn.commit()
-
 
 # ---- Teams ----
 
@@ -300,15 +313,25 @@ def db_close_session(session_id: str):
 def db_delete_session(session_id: str):
     db_close_session(session_id)
 
-def db_list_sessions():
+def db_list_sessions(user_id: int = None):
     with get_conn() as conn:
-        rows = conn.execute(
-            """SELECT s.session_id, s.username, s.container_name, s.container_ip,
-                      s.last_seen, s.created_at, u.team_id, s.image
-               FROM sessions s
-               JOIN users u ON s.user_id = u.id
-               ORDER BY s.created_at DESC"""
-        ).fetchall()
+        if user_id:
+            rows = conn.execute(
+                """SELECT s.session_id, s.username, s.container_name, s.container_ip,
+                          s.last_seen, s.created_at, u.team_id, s.image
+                   FROM sessions s
+                   JOIN users u ON s.user_id = u.id
+                   WHERE s.user_id = ?
+                   ORDER BY s.created_at DESC""", (user_id,)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT s.session_id, s.username, s.container_name, s.container_ip,
+                          s.last_seen, s.created_at, u.team_id, s.image
+                   FROM sessions s
+                   JOIN users u ON s.user_id = u.id
+                   ORDER BY s.created_at DESC"""
+            ).fetchall()
         return [dict(r) for r in rows]
 
 def db_get_session_by_token(token: str):
@@ -445,6 +468,7 @@ def db_search_session_log(
         """, params).fetchall()
     return [dict(r) for r in rows]
 
+# --- FEHLENDE FUNKTION FÜR ADMIN LOGGING HINZUGEFÜGT ---
 def db_team_ranking(period="all", year=None, month=None, week=None, day=None):
     """Rangliste aller Teams nach Gesamtnutzungszeit."""
     where, params = _build_time_filter(period, year, month, week, day)
@@ -461,3 +485,82 @@ def db_team_ranking(period="all", year=None, month=None, week=None, day=None):
             ORDER BY total_seconds DESC
         """, params).fetchall()
     return [dict(r) for r in rows]
+
+# --- FEHLENDE CONTAINER DEFS FUNKTIONEN HINZUGEFÜGT ---
+def db_list_container_defs(team_id: Optional[int] = None):
+    with get_conn() as conn:
+        rows = conn.execute("SELECT * FROM container_defs ORDER BY name").fetchall()
+        
+    result = []
+    for r in rows:
+        d = dict(r)
+        d["team_ids"] = json.loads(d["team_ids"]) if d["team_ids"] else []
+        if team_id is None or d["is_default"] or team_id in d["team_ids"]:
+            result.append(d)
+    return result
+
+def db_get_container_def(def_id: int):
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM container_defs WHERE id=?", (def_id,)).fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        d["team_ids"] = json.loads(d["team_ids"]) if d["team_ids"] else []
+        return d
+
+def db_get_default_container_def():
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM container_defs WHERE is_default=1 LIMIT 1").fetchone()
+        if not row:
+            row = conn.execute("SELECT * FROM container_defs LIMIT 1").fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        d["team_ids"] = json.loads(d["team_ids"]) if d["team_ids"] else []
+        return d
+
+def db_create_container_def(data: dict):
+    with get_conn() as conn:
+        if data.get("is_default"):
+            conn.execute("UPDATE container_defs SET is_default=0")
+            
+        cur = conn.execute(
+            """INSERT INTO container_defs (name, image, tag, is_default, team_ids)
+               VALUES (?, ?, ?, ?, ?)""",
+            (
+                data["name"], data["image"], data.get("tag", "latest"),
+                1 if data.get("is_default") else 0,
+                json.dumps(data.get("team_ids", []))
+            )
+        )
+        conn.commit()
+        return db_get_container_def(cur.lastrowid)
+
+def db_update_container_def(def_id: int, data: dict):
+    current = db_get_container_def(def_id)
+    if not current:
+        return None
+        
+    with get_conn() as conn:
+        if data.get("is_default"):
+            conn.execute("UPDATE container_defs SET is_default=0")
+            
+        fields = []
+        values = []
+        for k, v in data.items():
+            if k == "team_ids":
+                v = json.dumps(v)
+            fields.append(f"{k}=?")
+            values.append(v)
+        values.append(def_id)
+        
+        if fields:
+            conn.execute(f"UPDATE container_defs SET {', '.join(fields)} WHERE id=?", values)
+            conn.commit()
+    return db_get_container_def(def_id)
+
+def db_delete_container_def(def_id: int) -> bool:
+    with get_conn() as conn:
+        cur = conn.execute("DELETE FROM container_defs WHERE id=?", (def_id,))
+        conn.commit()
+        return cur.rowcount > 0
