@@ -1,9 +1,10 @@
 import logging
 import secrets
 import uuid
+import traceback
 
 from fastapi import APIRouter, Depends, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from auth import get_current_user, require_admin
 from docker_manager import create_container, stop_container, container_exists, get_container_ip
@@ -19,7 +20,10 @@ from database import (
     db_get_default_container_def,
 )
 
+
 router = APIRouter(tags=["sessions"])
+logger = logging.getLogger(__name__)
+
 
 @router.post("/api/session/start")
 async def start_session(request: Request, user: dict = Depends(get_current_user)):
@@ -52,33 +56,41 @@ async def start_session(request: Request, user: dict = Depends(get_current_user)
     except Exception: 
         pass
 
-    container_def_id = body.get("container_def_id")
-    if container_def_id:
-        container_def = db_get_container_def(int(container_def_id)) 
-    else:
-        container_def = db_get_default_container_def()
+    try:
+        container_def_id = body.get("container_def_id")
+        if container_def_id:
+            container_def = db_get_container_def(int(container_def_id)) 
+        else:
+            container_def = db_get_default_container_def()
 
-    if not container_def:
-        return JSONResponse({"detail": "Keine Container-Definition vorhanden."}, status_code=500)
+        if not container_def:
+            return JSONResponse({"detail": "Keine Container-Definition vorhanden."}, status_code=500)
 
-    session_id = str(uuid.uuid4())
-    token = secrets.token_urlsafe(32)
+        session_id = str(uuid.uuid4())
+        token = secrets.token_urlsafe(32)
 
-    container = create_container(username, session_id, token, container_def)
-    container_ip = get_container_ip(container)
+        # HIER fangen wir den Fehler ab:
+        container = create_container(username, session_id, token, container_def)
+        container_ip = get_container_ip(container)
 
-    register_session(session_id, user_id, username, container.name, token, container_ip)
+        register_session(session_id, user_id, username, container.name, token, container_ip)
 
-    url = f"https://{session_id[:8]}.{BASE_DOMAIN}/" if BASE_DOMAIN else f"http://{session_id[:8]}.localhost/"
-    response = JSONResponse({
-        "status": "started", "url": url, "session_id": session_id, "token": token
-    })
-    response.set_cookie(
-        key="vbrowser_token", value=token,
-        domain=f".{BASE_DOMAIN}" if BASE_DOMAIN else None,
-        httponly=True, samesite="none", secure=USE_TLS, max_age=86400
-    )
-    return response
+        url = f"https://{session_id[:8]}.{BASE_DOMAIN}/" if BASE_DOMAIN else f"http://{session_id[:8]}.localhost/"
+        response = JSONResponse({
+            "status": "started", "url": url, "session_id": session_id, "token": token
+        })
+        response.set_cookie(
+            key="vbrowser_token", value=token,
+            domain=f".{BASE_DOMAIN}" if BASE_DOMAIN else None,
+            httponly=True, samesite="none", secure=USE_TLS, max_age=86400
+        )
+        return response
+
+    except Exception as e:
+        error_trace = traceback.format_exc()
+        logger.error(f"Fehler beim Starten der Session: {error_trace}")
+        return PlainTextResponse(f"Crash in start_session: {str(e)}\n\n{error_trace}", status_code=500)
+
 
 
 @router.post("/api/session/stop")
@@ -88,6 +100,7 @@ def api_stop_session(user: dict = Depends(get_current_user)):
         stop_container(session["container_name"])
         db_delete_session(session["session_id"])
     return {"ok": True}
+
 
 
 @router.get("/api/session/status")
@@ -102,6 +115,7 @@ def session_status(user: dict = Depends(get_current_user)):
     }
 
 
+
 @router.post("/api/session/reset")
 def reset_session(user: dict = Depends(get_current_user)):
     session = db_get_session_by_user(user["uid"])
@@ -109,6 +123,7 @@ def reset_session(user: dict = Depends(get_current_user)):
         stop_container(session["container_name"])
         db_delete_session(session["session_id"])
     return {"ok": True}
+
 
 
 # Beide Pfade erlaubt, um Frontend-Abstürze zu verhindern
@@ -120,6 +135,7 @@ def list_sessions(user: dict = Depends(get_current_user)):
     return db_list_sessions(user["uid"])
 
 
+
 @router.post("/heartbeat/{session_id}")
 def heartbeat(session_id: str, request: Request):
     token = request.cookies.get("vbrowser_token")
@@ -129,12 +145,14 @@ def heartbeat(session_id: str, request: Request):
     return Response(status_code=204)
 
 
+
 @router.get("/auth/verify")
 def auth_verify(request: Request):
     token = request.cookies.get("vbrowser_token")
     if not token or not validate_token(token):
         return Response(status_code=401)
     return Response(status_code=200)
+
 
 
 @router.get("/auth/set-cookie")
