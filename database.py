@@ -3,7 +3,8 @@ import sqlite3
 import time
 import json
 from typing import Optional
-from config import DBPATH
+# KORREKTUR: SECRETKEY aus der config importiert
+from config import DBPATH, SECRETKEY
 
 def _ensuredir():
     dbdir = os.path.dirname(DBPATH)
@@ -115,9 +116,10 @@ def initdb():
     cur.execute("CREATE INDEX IF NOT EXISTS idx_log_started ON session_log(started_at)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_log_ip      ON session_log(container_ip)")
 
+    # --- KORREKTUR: Verwende SECRETKEY für das admin-Passwort ---
     cur.execute(
         "INSERT OR IGNORE INTO users (username, password, isadmin) VALUES (?, ?, ?)",
-        ("admin", "adminpass", 1),
+        ("admin", SECRETKEY, 1),
     )
     conn.commit()
     conn.close()

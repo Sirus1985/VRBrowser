@@ -52,7 +52,8 @@ def cleanup_loop():
                 # KORREKTUR: Wir nutzen das direkte client-Objekt
                 containers = client.containers.list()
                 for c in containers:
-                    if c.name.startswith("vbrowser-"):
+                    # Ignoriere alle Basis-Container wie vbrowser-backend, vbrowser-frontend, etc.
+                    if c.name.startswith("vbrowser-") and c.name != "vbrowser-backend" and not c.name.startswith("vbrowser-db")and not c.name.startswith("vbrowser-traefik"):
                         if c.name not in valid_containers:
                             logger.info(f"Verwaisten Container gefunden: {c.name}. Stoppe ihn...")
                             try:
