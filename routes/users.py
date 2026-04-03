@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 from models import NewUser
 from database import (
-    db_list_users, db_get_user_by_id, db_create_user, db_delete_user,
+    db_list_users, db_get_user_by_id, db_add_user, db_delete_user,
     db_update_user, db_is_team_admin, db_get_session_by_user, db_delete_session
 )
 from auth import require_admin_or_teamadmin
@@ -38,7 +38,7 @@ def add_user(n: NewUser, user: dict = Depends(require_admin_or_teamadmin)):
         if n.isadmin:
             raise HTTPException(403, "Cannot create Superadmin")
     try:
-        db_create_user(n.username, n.password, n.isadmin, n.team_id)
+        db_add_user(n.username, n.password, n.isadmin, n.team_id)
     except Exception:
         raise HTTPException(400, "Username already exists")
     return {"status": "ok"}

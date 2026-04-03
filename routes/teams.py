@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from models import NewTeam, TeamAdminAssign
 from database import (
-    db_list_teams, db_get_team, db_create_team, db_delete_team,
+    db_list_teams, db_get_team, db_add_team, db_delete_team,
     db_list_users, db_get_user_by_id, db_is_team_admin,
     db_assign_team_admin, db_remove_team_admin, db_get_team_admins, db_get_admin_teams,
 )
@@ -19,7 +19,7 @@ def list_teams(user: dict = Depends(require_admin_or_teamadmin)):
 @router.post("")
 def add_team(t: NewTeam, user: dict = Depends(require_admin)):
     try:
-        db_create_team(t.name)
+        db_add_team(t.name)
         # ID zurückgeben
         teams = db_list_teams()
         new_team = next((t2 for t2 in teams if t2["name"] == t.name), None)

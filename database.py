@@ -4,12 +4,10 @@ import time
 from typing import Optional
 from config import DBPATH
 
-
 def _ensuredir():
     dbdir = os.path.dirname(DBPATH)
     if dbdir:
         os.makedirs(dbdir, exist_ok=True)
-
 
 def initdb():
     _ensuredir()
@@ -74,6 +72,7 @@ def initdb():
     except sqlite3.OperationalError:
         pass
 
+    # KORRIGIERTE SYNTAX FÜR session_log
     cur.execute("""
         CREATE TABLE IF NOT EXISTS session_log (
             id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,11 +85,12 @@ def initdb():
             duration       REAL NOT NULL,
             image          TEXT
         )
-    """
+    """)
+    
     try:
         cur.execute("ALTER TABLE session_log ADD COLUMN image TEXT")
     except sqlite3.OperationalError:
-        pass)
+        pass
 
     # Migration für bestehende session_log-Tabelle
     try:
@@ -109,12 +109,10 @@ def initdb():
     conn.commit()
     conn.close()
 
-
 def get_conn():
     conn = sqlite3.connect(DBPATH)
     conn.row_factory = sqlite3.Row
     return conn
-
 
 # ---- Users ----
 
@@ -126,14 +124,12 @@ def db_get_user(username: str, password: str):
         ).fetchone()
         return dict(row) if row else None
 
-
 def db_get_user_by_id(userid: int):
     with get_conn() as conn:
         row = conn.execute(
             "SELECT id, username, isadmin, team_id, auto_start_session FROM users WHERE id=?", (userid,)
         ).fetchone()
         return dict(row) if row else None
-
 
 def db_list_users(team_id: Optional[int] = None):
     with get_conn() as conn:
@@ -148,7 +144,6 @@ def db_list_users(team_id: Optional[int] = None):
             ).fetchall()
         return [dict(r) for r in rows]
 
-
 def db_add_user(username: str, password: str, isadmin: bool, team_id: Optional[int] = None):
     with get_conn() as conn:
         conn.execute(
@@ -157,12 +152,10 @@ def db_add_user(username: str, password: str, isadmin: bool, team_id: Optional[i
         )
         conn.commit()
 
-
 def db_delete_user(userid: int):
     with get_conn() as conn:
         conn.execute("DELETE FROM users WHERE id=?", (userid,))
         conn.commit()
-
 
 def db_update_user_settings(user_id: int, auto_start_session: bool):
     with get_conn() as conn:
@@ -172,13 +165,27 @@ def db_update_user_settings(user_id: int, auto_start_session: bool):
         )
         conn.commit()
 
-
 def db_get_user_settings(user_id: int) -> dict:
     with get_conn() as conn:
         row = conn.execute(
             "SELECT auto_start_session FROM users WHERE id=?", (user_id,)
         ).fetchone()
         return dict(row) if row else {"auto_start_session": 0}
+
+def db_update_user(userid: int, data: dict):
+    if not data:
+        return
+    fields = []
+    values = []
+    for k, v in data.items():
+        fields.append(f"{k}=?")
+        values.append(v)
+    values.append(userid)
+    
+    query = f"UPDATE users SET {', '.join(fields)} WHERE id=?"
+    with get_conn() as conn:
+        conn.execute(query, values)
+        conn.commit()
 
 
 # ---- Teams ----
@@ -188,12 +195,10 @@ def db_list_teams():
         rows = conn.execute("SELECT id, name FROM teams ORDER BY name").fetchall()
         return [dict(r) for r in rows]
 
-
 def db_get_team(team_id: int):
     with get_conn() as conn:
         row = conn.execute("SELECT id, name FROM teams WHERE id=?", (team_id,)).fetchone()
         return dict(row) if row else None
-
 
 def db_add_team(name: str) -> int:
     with get_conn() as conn:
@@ -201,12 +206,10 @@ def db_add_team(name: str) -> int:
         conn.commit()
         return cur.lastrowid
 
-
 def db_delete_team(team_id: int):
     with get_conn() as conn:
         conn.execute("DELETE FROM teams WHERE id=?", (team_id,))
         conn.commit()
-
 
 # ---- Team Admins ----
 
@@ -220,14 +223,12 @@ def db_get_admin_teams(user_id: int):
         ).fetchall()
         return [dict(r) for r in rows]
 
-
 def db_is_team_admin(user_id: int, team_id: int) -> bool:
     with get_conn() as conn:
         row = conn.execute(
             "SELECT 1 FROM team_admins WHERE user_id=? AND team_id=?", (user_id, team_id)
         ).fetchone()
         return row is not None
-
 
 def db_assign_team_admin(user_id: int, team_id: int):
     with get_conn() as conn:
@@ -236,14 +237,12 @@ def db_assign_team_admin(user_id: int, team_id: int):
         )
         conn.commit()
 
-
 def db_remove_team_admin(user_id: int, team_id: int):
     with get_conn() as conn:
         conn.execute(
             "DELETE FROM team_admins WHERE user_id=? AND team_id=?", (user_id, team_id)
         )
         conn.commit()
-
 
 def db_get_team_admins(team_id: int):
     with get_conn() as conn:
@@ -255,21 +254,19 @@ def db_get_team_admins(team_id: int):
         ).fetchall()
         return [dict(r) for r in rows]
 
-
 # ---- Sessions ----
 
 def db_create_session(session_id: str, user_id: int, username: str,
-                      container_name: str, token: str, container_ip: str = None):
+                      container_name: str, token: str, container_ip: str = None, image: str = None):
     now = time.time()
     with get_conn() as conn:
         conn.execute(
             """INSERT OR REPLACE INTO sessions
-               (session_id, user_id, username, container_name, container_ip, token, last_seen, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (session_id, user_id, username, container_name, container_ip, token, now, now),
+               (session_id, user_id, username, container_name, container_ip, token, last_seen, created_at, image)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (session_id, user_id, username, container_name, container_ip, token, now, now, image),
         )
         conn.commit()
-
 
 def db_update_heartbeat(session_id: str):
     with get_conn() as conn:
@@ -278,7 +275,6 @@ def db_update_heartbeat(session_id: str):
             (time.time(), session_id),
         )
         conn.commit()
-
 
 def db_close_session(session_id: str):
     """Archiviert eine Sitzung in session_log und löscht sie aus der aktiven Tabelle."""
@@ -300,11 +296,9 @@ def db_close_session(session_id: str):
             conn.execute("DELETE FROM sessions WHERE session_id=?", (session_id,))
             conn.commit()
 
-
 # Alias: altes db_delete_session wird durch db_close_session ersetzt
 def db_delete_session(session_id: str):
     db_close_session(session_id)
-
 
 def db_list_sessions():
     with get_conn() as conn:
@@ -317,18 +311,15 @@ def db_list_sessions():
         ).fetchall()
         return [dict(r) for r in rows]
 
-
 def db_get_session_by_token(token: str):
     with get_conn() as conn:
         row = conn.execute("SELECT * FROM sessions WHERE token=?", (token,)).fetchone()
         return dict(row) if row else None
 
-
 def db_get_session_by_user(user_id: int):
     with get_conn() as conn:
         row = conn.execute("SELECT * FROM sessions WHERE user_id=?", (user_id,)).fetchone()
         return dict(row) if row else None
-
 
 def db_get_timed_out_sessions(timeout: float):
     cutoff = time.time() - timeout
@@ -337,7 +328,6 @@ def db_get_timed_out_sessions(timeout: float):
             "SELECT * FROM sessions WHERE last_seen < ?", (cutoff,)
         ).fetchall()
         return [dict(r) for r in rows]
-
 
 # ---- Session Log / Nutzungsanalyse ----
 
@@ -379,7 +369,6 @@ def _build_time_filter(period: str, year=None, month=None, week=None, day=None):
     where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
     return where, params
 
-
 def db_usage_ranking(period="all", year=None, month=None, week=None, day=None):
     """Rangliste aller Nutzer nach Gesamtnutzungszeit."""
     where, params = _build_time_filter(period, year, month, week, day)
@@ -395,7 +384,6 @@ def db_usage_ranking(period="all", year=None, month=None, week=None, day=None):
         """, params).fetchall()
     return [dict(r) for r in rows]
 
-
 def db_user_session_log(user_id: int, period="all", year=None, month=None, week=None, day=None):
     """Alle archivierten Sitzungen eines Nutzers."""
     where, params = _build_time_filter(period, year, month, week, day)
@@ -408,7 +396,6 @@ def db_user_session_log(user_id: int, period="all", year=None, month=None, week=
             ORDER BY started_at DESC
         """, [user_id] + params).fetchall()
     return [dict(r) for r in rows]
-
 
 def db_find_user_by_container(container_name: str):
     """Rückwärtssuche: Welche Nutzer haben diesen Container genutzt?"""
@@ -423,7 +410,6 @@ def db_find_user_by_container(container_name: str):
             ORDER BY sl.username
         """, (container_name,)).fetchall()
     return [dict(r) for r in rows]
-
 
 def db_search_session_log(
     query: str = None,
@@ -456,5 +442,22 @@ def db_search_session_log(
             {where_clause}
             ORDER BY started_at DESC
             LIMIT 500
+        """, params).fetchall()
+    return [dict(r) for r in rows]
+
+def db_team_ranking(period="all", year=None, month=None, week=None, day=None):
+    """Rangliste aller Teams nach Gesamtnutzungszeit."""
+    where, params = _build_time_filter(period, year, month, week, day)
+    with get_conn() as conn:
+        rows = conn.execute(f"""
+            SELECT t.name as team_name, t.id as team_id,
+                   COUNT(sl.id) as session_count,
+                   SUM(sl.duration) as total_seconds
+            FROM session_log sl
+            JOIN users u ON sl.user_id = u.id
+            JOIN teams t ON u.team_id = t.id
+            {where.replace("WHERE", "WHERE ")}
+            GROUP BY t.id
+            ORDER BY total_seconds DESC
         """, params).fetchall()
     return [dict(r) for r in rows]
