@@ -5,6 +5,7 @@ import traceback
 
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
+from datetime import datetime, timezone
 
 from auth import get_current_user, require_admin
 from docker_manager import create_container, stop_container, container_exists, get_container_ip
@@ -19,6 +20,11 @@ from database import (
     db_get_container_def,
     db_get_default_container_def,
 )
+
+
+
+
+
 
 
 router = APIRouter(tags=["sessions"])
@@ -127,13 +133,28 @@ def reset_session(user: dict = Depends(get_current_user)):
 
 
 
-# Beide Pfade erlaubt, um Frontend-Abstürze zu verhindern
+def _ts_to_iso(ts):
+    if ts is None:
+        return None
+    try:
+        return datetime.fromtimestamp(float(ts), tz=timezone.utc).isoformat().replace("+00:00", "Z")
+    except Exception:
+        return None
+
+
 @router.get("/api/sessions")
 @router.get("/api/session/list")
 def list_sessions(user: dict = Depends(get_current_user)):
     if user.get("isadmin") or user.get("admin"):
-        return db_list_sessions()
-    return db_list_sessions(user["uid"])
+        sessions = db_list_sessions()
+    else:
+        sessions = db_list_sessions(user["uid"])
+
+    for s in sessions:
+        s["created_at"] = _ts_to_iso(s.get("created_at"))
+        s["last_seen"] = _ts_to_iso(s.get("last_seen"))
+
+    return sessions
 
 
 
