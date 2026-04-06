@@ -12,14 +12,23 @@ router = APIRouter(prefix="/api/admin/logging", tags=["admin-logging"])
 @router.get("/ranking")
 def usage_ranking(
     period: str = Query("all", description="all|day|week|month|year"),
-    year:   Optional[int] = None,
-    month:  Optional[int] = None,
-    week:   Optional[int] = None,
-    day:    Optional[str] = None,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    week: Optional[int] = None,
+    day: Optional[str] = None,
+    image: Optional[str] = None,
+    container_name: Optional[str] = None,
     _user: dict = Depends(require_admin),
 ):
-    return db_usage_ranking(period=period, year=year, month=month, week=week, day=day)
-
+    return db_usage_ranking(
+        period=period,
+        year=year,
+        month=month,
+        week=week,
+        day=day,
+        image=image,
+        container_name=container_name,
+    )
 
 @router.get("/ranking/teams")
 def team_ranking(
@@ -37,14 +46,24 @@ def team_ranking(
 def user_sessions(
     user_id: int,
     period: str = Query("all"),
-    year:   Optional[int] = None,
-    month:  Optional[int] = None,
-    week:   Optional[int] = None,
-    day:    Optional[str] = None,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    week: Optional[int] = None,
+    day: Optional[str] = None,
+    image: Optional[str] = None,
+    container_name: Optional[str] = None,
     _user: dict = Depends(require_admin),
 ):
-    return db_user_session_log(user_id, period=period, year=year, month=month, week=week, day=day)
-
+    return db_user_session_log(
+        user_id,
+        period=period,
+        year=year,
+        month=month,
+        week=week,
+        day=day,
+        image=image,
+        container_name=container_name,
+    )
 
 @router.get("/container/{container_name}")
 def container_to_user(

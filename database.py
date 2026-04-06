@@ -2,8 +2,17 @@ import os
 import sqlite3
 import time
 import json
+import datetime
 from typing import Optional
 from config import DBPATH, SECRETKEY
+
+def to_dict(row):
+    if not row: return None
+    d = dict(row)
+    for k in ["created_at", "last_seen", "started_at", "ended_at", "timestamp"]:
+        if k in d and d[k] is not None:
+            d[k] = datetime.datetime.fromtimestamp(float(d[k]), tz=datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+    return d
 
 def get_conn():
     conn = sqlite3.connect(DBPATH)
@@ -166,13 +175,13 @@ def initdb():
 # ---------------------------------------------------------
 def db_get_user(username: str, password: str):
     with get_conn() as conn:
-        return conn.execute(
+        return to_dict(conn.execute(
             "SELECT * FROM users WHERE username=? AND password=?", (username, password)
-        ).fetchone()
+        ).fetchone())
 
 def db_get_user_by_id(userid: int):
     with get_conn() as conn:
-        return conn.execute("SELECT * FROM users WHERE id=?", (userid,)).fetchone()
+        return to_dict(conn.execute("SELECT * FROM users WHERE id=?", (userid,)).fetchone())
 
 def db_list_users(team_id: Optional[int] = None):
     with get_conn() as conn:
@@ -189,7 +198,7 @@ def db_list_users(team_id: Optional[int] = None):
                 FROM users u
                 LEFT JOIN teams t ON u.team_id = t.id
             """).fetchall()
-        return [dict(r) for r in rows]
+        return [to_dict(r) for r in rows]
 
 def db_add_user(username: str, password: str, isadmin: bool, team_id: Optional[int] = None):
     with get_conn() as conn:
@@ -265,7 +274,7 @@ def db_list_teams():
         rows = conn.execute("SELECT * FROM teams").fetchall()
         result = []
         for r in rows:
-            d = dict(r)
+            d = to_dict(r)
             d["users_count"] = conn.execute("SELECT COUNT(*) FROM users WHERE team_id=?", (d["id"],)).fetchone()[0]
             admins = conn.execute("SELECT user_id FROM team_admins WHERE team_id=?", (d["id"],)).fetchall()
             d["admin_ids"] = [a["user_id"] for a in admins]
@@ -274,7 +283,7 @@ def db_list_teams():
 
 def db_get_team(team_id: int):
     with get_conn() as conn:
-        return conn.execute("SELECT * FROM teams WHERE id=?", (team_id,)).fetchone()
+        return to_dict(conn.execute("SELECT * FROM teams WHERE id=?", (team_id,)).fetchone())
 
 def db_add_team(name: str) -> int:
     with get_conn() as conn:
@@ -299,7 +308,7 @@ def db_get_admin_teams(user_id: int):
             JOIN team_admins ta ON t.id = ta.team_id
             WHERE ta.user_id=?
         """, (user_id,)).fetchall()
-        return [dict(r) for r in rows]
+        return [to_dict(r) for r in rows]
 
 def db_is_team_admin(user_id: int, team_id: int) -> bool:
     with get_conn() as conn:
@@ -324,7 +333,7 @@ def db_get_team_admins(team_id: int):
             JOIN team_admins ta ON u.id = ta.user_id
             WHERE ta.team_id=?
         """, (team_id,)).fetchall()
-        return [dict(r) for r in rows]
+        return [to_dict(r) for r in rows]
 
 # ---------------------------------------------------------
 # SESSIONS
@@ -391,30 +400,36 @@ def db_list_sessions(user_id: int = None):
                    FROM sessions s
                    LEFT JOIN users u ON s.user_id = u.id"""
             ).fetchall()
-        return [dict(r) for r in rows]
+        return [to_dict(r) for r in rows]
 
 def db_get_session_by_token(token: str):
     with get_conn() as conn:
-        return conn.execute("SELECT * FROM sessions WHERE token=?", (token,)).fetchone()
+        return to_dict(conn.execute("SELECT * FROM sessions WHERE token=?", (token,)).fetchone())
 
 def db_get_session_by_user(user_id: int):
     with get_conn() as conn:
-        return conn.execute("SELECT * FROM sessions WHERE user_id=?", (user_id,)).fetchone()
+        return to_dict(conn.execute("SELECT * FROM sessions WHERE user_id=?", (user_id,)).fetchone())
 
 def db_get_timed_out_sessions(timeout: float):
     cutoff = time.time() - timeout
     with get_conn() as conn:
         rows = conn.execute("SELECT * FROM sessions WHERE last_seen < ?", (cutoff,)).fetchall()
-        return [dict(r) for r in rows]
+        return [to_dict(r) for r in rows]
 
 # ---------------------------------------------------------
 # DASHBOARD / LOGS
 # ---------------------------------------------------------
-def db_usage_ranking(period="all", year=None, month=None, week=None, day=None):
+def db_usage_ranking(period="all", year=None, month=None, week=None, day=None, image=None, container_name=None):
     with get_conn() as conn:
-        q = "SELECT user_id, username, SUM(duration) as total_time FROM session_log"
+        q = """
+            SELECT user_id, username,
+                   COUNT(*) AS session_count,
+                   COALESCE(SUM(duration), 0) AS total_seconds
+            FROM session_log
+        """
         cond = []
         p = []
+
         if period == "month" and year and month:
             cond.append("strftime('%Y', datetime(started_at, 'unixepoch')) = ?")
             cond.append("strftime('%m', datetime(started_at, 'unixepoch')) = ?")
@@ -429,14 +444,22 @@ def db_usage_ranking(period="all", year=None, month=None, week=None, day=None):
             cond.append("strftime('%d', datetime(started_at, 'unixepoch')) = ?")
             p.extend([str(year), f"{month:02d}", f"{day:02d}"])
 
+        if image:
+            cond.append("image = ?")
+            p.append(image)
+
+        if container_name:
+            cond.append("container_name LIKE ?")
+            p.append(f"%{container_name}%")
+
         if cond:
             q += " WHERE " + " AND ".join(cond)
 
-        q += " GROUP BY user_id, username ORDER BY total_time DESC LIMIT 20"
+        q += " GROUP BY user_id, username ORDER BY total_seconds DESC LIMIT 20"
         rows = conn.execute(q, p).fetchall()
-        return [dict(r) for r in rows]
+        return [to_dict(r) for r in rows]
 
-def db_user_session_log(user_id: int, period="all", year=None, month=None, week=None, day=None):
+def db_user_session_log(user_id: int, period="all", year=None, month=None, week=None, day=None, image=None, container_name=None):
     with get_conn() as conn:
         q = "SELECT * FROM session_log WHERE user_id=?"
         cond = []
@@ -456,19 +479,27 @@ def db_user_session_log(user_id: int, period="all", year=None, month=None, week=
             cond.append("strftime('%d', datetime(started_at, 'unixepoch')) = ?")
             p.extend([str(year), f"{month:02d}", f"{day:02d}"])
 
+        if image:
+            cond.append("image = ?")
+            p.append(image)
+
+        if container_name:
+            cond.append("container_name LIKE ?")
+            p.append(f"%{container_name}%")
+
         if cond:
             q += " AND " + " AND ".join(cond)
 
         q += " ORDER BY id DESC"
         rows = conn.execute(q, p).fetchall()
-        return [dict(r) for r in rows]
+        return [to_dict(r) for r in rows]
 
 def db_find_user_by_container(container_name: str):
     with get_conn() as conn:
         row = conn.execute("SELECT username FROM session_log WHERE container_name=?", (container_name,)).fetchone()
-        if row: return row["username"]
+        if row: return to_dict(row)["username"]
         row = conn.execute("SELECT username FROM sessions WHERE container_name=?", (container_name,)).fetchone()
-        if row: return row["username"]
+        if row: return to_dict(row)["username"]
         return "Unbekannt"
 
 def db_search_session_log(
@@ -530,7 +561,7 @@ def db_search_session_log(
         "page": page,
         "limit": limit,
         "total": total,
-        "logs": [dict(r) for r in rows]
+        "logs": [to_dict(r) for r in rows]
     }
 
 def db_team_ranking(period="all", year=None, month=None, week=None, day=None):
@@ -562,7 +593,7 @@ def db_team_ranking(period="all", year=None, month=None, week=None, day=None):
 
         q += " GROUP BY t.id, t.name ORDER BY total_time DESC"
         rows = conn.execute(q, p).fetchall()
-        return [dict(r) for r in rows]
+        return [to_dict(r) for r in rows]
 
 # ---------------------------------------------------------
 # CONTAINER DEFINITIONS
@@ -572,7 +603,7 @@ def db_list_container_defs(team_id: Optional[int] = None):
         rows = conn.execute("SELECT * FROM container_defs").fetchall()
         result = []
         for r in rows:
-            d = dict(r)
+            d = to_dict(r)
             if d.get("team_ids"):
                 try: d["team_ids"] = json.loads(d["team_ids"])
                 except Exception: d["team_ids"] = []
@@ -595,7 +626,7 @@ def db_get_container_def(def_id: int):
     with get_conn() as conn:
         row = conn.execute("SELECT * FROM container_defs WHERE id=?", (def_id,)).fetchone()
         if not row: return None
-        d = dict(row)
+        d = to_dict(row)
         d["team_ids"] = json.loads(d["team_ids"]) if d.get("team_ids") else []
         d["env_vars"] = json.loads(d["env_vars"]) if d.get("env_vars") else []
         return d
@@ -606,7 +637,7 @@ def db_get_default_container_def():
         if not row:
             row = conn.execute("SELECT * FROM container_defs LIMIT 1").fetchone()
         if not row: return None
-        d = dict(row)
+        d = to_dict(row)
         d["team_ids"] = json.loads(d["team_ids"]) if d.get("team_ids") else []
         d["env_vars"] = json.loads(d["env_vars"]) if d.get("env_vars") else []
         return d
