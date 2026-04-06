@@ -400,6 +400,7 @@ table tbody tr:hover{background:var(--surface-offset)}
 <div id="tab-admin-log" class="tab-panel">
   <div class="card" style="margin-bottom:var(--space-4)">
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:var(--space-3);align-items:end">
+      
       <div class="form-group" style="margin-bottom:0">
         <label for="audit-period">Zeitraum</label>
         <select id="audit-period" class="form-control" onchange="syncAuditFilterVisibility()">
@@ -411,50 +412,44 @@ table tbody tr:hover{background:var(--surface-offset)}
         </select>
       </div>
 
-      <div class="form-group" style="margin-bottom:0">
+      <div class="form-group" style="margin-bottom:0" id="audit-year-wrapper">
         <label for="audit-year">Jahr</label>
         <input id="audit-year" class="form-control" type="number" min="2024" max="2100">
       </div>
 
-      <div class="form-group" style="margin-bottom:0">
+      <div class="form-group" style="margin-bottom:0" id="audit-month-wrapper">
         <label for="audit-month">Monat</label>
         <select id="audit-month" class="form-control">
           <option value="">—</option>
-          <option value="1">01</option>
-          <option value="2">02</option>
-          <option value="3">03</option>
-          <option value="4">04</option>
-          <option value="5">05</option>
-          <option value="6">06</option>
-          <option value="7">07</option>
-          <option value="8">08</option>
-          <option value="9">09</option>
-          <option value="10">10</option>
-          <option value="11">11</option>
-          <option value="12">12</option>
+          <option value="1">01</option><option value="2">02</option>
+          <option value="3">03</option><option value="4">04</option>
+          <option value="5">05</option><option value="6">06</option>
+          <option value="7">07</option><option value="8">08</option>
+          <option value="9">09</option><option value="10">10</option>
+          <option value="11">11</option><option value="12">12</option>
         </select>
       </div>
 
-      <div class="form-group" style="margin-bottom:0">
+      <div class="form-group" style="margin-bottom:0; display:none" id="audit-week-wrapper">
         <label for="audit-week">Woche</label>
         <input id="audit-week" class="form-control" type="number" min="1" max="53" placeholder="z.B. 14">
       </div>
 
-      <div class="form-group" style="margin-bottom:0">
+      <div class="form-group" style="margin-bottom:0; display:none" id="audit-day-wrapper">
         <label for="audit-day">Tag</label>
         <input id="audit-day" class="form-control" type="number" min="1" max="31" placeholder="z.B. 06">
       </div>
 
       <div class="form-group" style="margin-bottom:0">
-        <label for="audit-image">Docker-Container</label>
-        <select id="audit-image" class="form-control">
-          <option value="">Alle Docker-Container</option>
-        </select>
+        <label for="audit-user-name">Nutzername</label>
+        <input id="audit-user-name" class="form-control" type="text" placeholder="optional">
       </div>
 
       <div class="form-group" style="margin-bottom:0">
-        <label for="audit-container-name">Container-Name</label>
-        <input id="audit-container-name" class="form-control" type="text" placeholder="optional">
+        <label for="audit-image">Docker-Container</label>
+        <select id="audit-image" class="form-control">
+          <option value="">Alle Container</option>
+        </select>
       </div>
 
       <div style="display:flex;gap:var(--space-2);align-items:end">
@@ -465,7 +460,7 @@ table tbody tr:hover{background:var(--surface-offset)}
     </div>
   </div>
 
-  <div class="table-wrap" style="margin-bottom:var(--space-4)">
+  <div class="table-wrap">
     <table>
       <thead>
         <tr>
@@ -478,42 +473,6 @@ table tbody tr:hover{background:var(--surface-offset)}
       <tbody id="admin-log-ranking-tbody">
         <tr>
           <td colspan="4" style="color:var(--text-muted);text-align:center;padding:var(--space-8)">Lädt…</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div id="admin-log-user-box" class="card" style="margin-bottom:var(--space-4);display:none">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);flex-wrap:wrap">
-      <div>
-        <h3 style="font-size:var(--text-base);font-weight:600">
-          Sitzungen von <span id="admin-log-selected-user"></span>
-        </h3>
-        <p style="font-size:var(--text-sm);color:var(--text-muted);margin-top:var(--space-1)">
-          Detailansicht für den ausgewählten Nutzer.
-        </p>
-      </div>
-      <button class="btn btn-sm btn-ghost" onclick="clearAuditUser()">Auswahl aufheben</button>
-    </div>
-  </div>
-
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Start</th>
-          <th>Ende</th>
-          <th>Dauer</th>
-          <th>Docker-Image</th>
-          <th>Container</th>
-          <th>IP</th>
-        </tr>
-      </thead>
-      <tbody id="admin-log-tbody">
-        <tr>
-          <td colspan="6" style="color:var(--text-muted);text-align:center;padding:var(--space-8)">
-            Bitte oben einen Nutzer auswählen.
-          </td>
         </tr>
       </tbody>
     </table>
@@ -673,34 +632,34 @@ table tbody tr:hover{background:var(--surface-offset)}
 
 <!-- Modal: Nutzer-Details Log -->
 <div id="user-detail-modal" class="modal-backdrop">
-  <div class="modal" style="max-width:800px">
+  <div class="modal" style="max-width:900px">
     <div class="modal-header">
       <h2 id="detail-title">Sitzungen</h2>
       <button class="btn btn-icon btn-ghost" onclick="closeModal('user-detail-modal')" aria-label="Schließen">✕</button>
     </div>
 
-    <div style="display:flex;gap:var(--space-2);margin-bottom:var(--space-4)">
-       <select id="detail-period" class="form-control" onchange="showPeriodFields('detail-'); loadUserDetail()" style="width:auto">
-          <option value="all">Gesamt</option>
-          <option value="day">Tag</option>
-          <option value="week">Woche</option>
-          <option value="month">Monat</option>
-          <option value="year">Jahr</option>
-       </select>
-       <input id="detail-year" class="form-control" type="number" placeholder="Jahr" style="display:none;width:100px" onchange="loadUserDetail()">
-       <input id="detail-month" class="form-control" type="number" placeholder="Monat 1-12" style="display:none;width:100px" min="1" max="12" onchange="loadUserDetail()">
-       <input id="detail-week" class="form-control" type="number" placeholder="KW 1-53" style="display:none;width:100px" min="1" max="53" onchange="loadUserDetail()">
-       <input id="detail-day" class="form-control" type="date" style="display:none;width:150px" onchange="loadUserDetail()">
-       <button class="btn btn-secondary" onclick="loadUserDetail()">↻</button>
-    </div>
-
     <div class="table-wrap" style="max-height:400px;overflow-y:auto">
       <table>
-        <thead><tr><th>Image</th><th>Container</th><th>Start</th><th>Dauer</th></tr></thead>
-        <tbody id="detail-body"></tbody>
+        <thead>
+          <tr>
+            <th>Start</th>
+            <th>Ende</th>
+            <th>Dauer</th>
+            <th>Image</th>
+            <th>Container</th>
+            <th>IP</th>
+          </tr>
+        </thead>
+        <tbody id="detail-body">
+          <tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:var(--space-4)">Lädt…</td></tr>
+        </tbody>
       </table>
     </div>
-    <div style="margin-top:var(--space-4);text-align:right;font-weight:bold" id="detail-total"></div>
+    
+    <div style="margin-top:var(--space-4);display:flex;justify-content:space-between;align-items:center">
+      <button class="btn btn-sm btn-secondary" onclick="exportUserLog()">↓ Detail-CSV Export</button>
+      <div style="font-weight:bold" id="detail-total"></div>
+    </div>
   </div>
 </div>
 
@@ -1484,40 +1443,7 @@ function renderAuditRanking() {
   `).join('');
 }
 
-function renderAuditUserSessions() {
-  const tbody = document.getElementById('admin-log-tbody');
 
-  if (!auditSelectedUser) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="6" style="color:var(--text-muted);text-align:center;padding:var(--space-8)">
-          Bitte oben einen Nutzer auswählen.
-        </td>
-      </tr>`;
-    return;
-  }
-
-  if (!auditUserSessions.length) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="6" style="color:var(--text-muted);text-align:center;padding:var(--space-8)">
-          Keine Sitzungen für den gewählten Filter.
-        </td>
-      </tr>`;
-    return;
-  }
-
-  tbody.innerHTML = auditUserSessions.map(s => `
-    <tr>
-      <td style="font-size:var(--text-xs);white-space:nowrap">${fmtDate(s.started_at)}</td>
-      <td style="font-size:var(--text-xs);white-space:nowrap">${fmtDate(s.ended_at)}</td>
-      <td>${fmtDuration(s.duration)}</td>
-      <td style="font-size:var(--text-xs)">${esc(s.image || '—')}</td>
-      <td style="font-size:var(--text-xs)">${esc(s.container_name || '—')}</td>
-      <td style="font-size:var(--text-xs);color:var(--text-muted)">${esc(s.container_ip || '—')}</td>
-    </tr>
-  `).join('');
-}
 
 async function loadAuditUserLog(userId, username) {
   auditSelectedUser = { id: userId, username };
@@ -1527,16 +1453,9 @@ async function loadAuditUserLog(userId, username) {
   const filters = getAuditFilters();
   auditUserSessions = await api('/api/admin/logging/user/' + userId + '?' + qs(filters)) || [];
   logData = auditUserSessions;
-  renderAuditUserSessions();
+
 }
 
-function clearAuditUser() {
-  auditSelectedUser = null;
-  auditUserSessions = [];
-  logData = [];
-  document.getElementById('admin-log-user-box').style.display = 'none';
-  renderAuditUserSessions();
-}
 
 async function loadAdminLog() {
   const rankingTbody = document.getElementById('admin-log-ranking-tbody');
@@ -1690,6 +1609,167 @@ function exportLog() {
   a.download = filename;
   a.click();
 }
+
+function getAuditFilters() {
+  return {
+    period: document.getElementById('audit-period')?.value || 'month',
+    year: document.getElementById('audit-year')?.value || null,
+    month: document.getElementById('audit-month')?.value || null,
+    week: document.getElementById('audit-week')?.value || null,
+    day: document.getElementById('audit-day')?.value || null,
+    image: document.getElementById('audit-image')?.value || null,
+    username: document.getElementById('audit-user-name')?.value.trim().toLowerCase() || null,
+  };
+}
+
+function syncAuditFilterVisibility() {
+  const period = document.getElementById('audit-period')?.value || 'month';
+  const yw = document.getElementById('audit-year-wrapper');
+  const mw = document.getElementById('audit-month-wrapper');
+  const ww = document.getElementById('audit-week-wrapper');
+  const dw = document.getElementById('audit-day-wrapper');
+
+  if (!yw || !mw || !ww || !dw) return;
+
+  yw.style.display = period === 'all' ? 'none' : 'block';
+  mw.style.display = ['month', 'day'].includes(period) ? 'block' : 'none';
+  ww.style.display = period === 'week' ? 'block' : 'none';
+  dw.style.display = period === 'day' ? 'block' : 'none';
+}
+
+function resetAuditFilters() {
+  const now = new Date();
+  document.getElementById('audit-period').value = 'month';
+  document.getElementById('audit-year').value = now.getFullYear();
+  document.getElementById('audit-month').value = now.getMonth() + 1;
+  document.getElementById('audit-week').value = '';
+  document.getElementById('audit-day').value = '';
+  document.getElementById('audit-image').value = '';
+  document.getElementById('audit-user-name').value = '';
+  
+  syncAuditFilterVisibility();
+  loadAdminLog();
+}
+
+async function loadAuditContainerFilter() {
+  const sel = document.getElementById('audit-image');
+  if (!sel) return;
+  const defs = await api('/api/admin/containers') || [];
+  const current = sel.value || '';
+  sel.innerHTML = '<option value="">Alle Container</option>' +
+    defs.map(cd => `<option value="${esc(cd.image)}">${esc(cd.name)} (${esc(cd.image)})</option>`).join('');
+  sel.value = current;
+  auditContainersLoaded = true;
+}
+
+async function loadAdminLog() {
+  const tbody = document.getElementById('admin-log-ranking-tbody');
+  try {
+    if (!document.getElementById('audit-year').value) {
+      const now = new Date();
+      document.getElementById('audit-year').value = now.getFullYear();
+      document.getElementById('audit-month').value = now.getMonth() + 1;
+    }
+    syncAuditFilterVisibility();
+    if (!auditContainersLoaded) await loadAuditContainerFilter();
+
+    tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-muted);text-align:center;padding:var(--space-8)">Lädt…</td></tr>`;
+
+    const filters = getAuditFilters();
+    let ranking = await api('/api/admin/logging/ranking?' + qs(filters)) || [];
+    
+    if (filters.username) {
+       ranking = ranking.filter(r => (r.username || '').toLowerCase().includes(filters.username));
+    }
+    auditRanking = ranking;
+
+    if (!auditRanking.length) {
+      tbody.innerHTML = `<tr><td colspan="4" style="color:var(--text-muted);text-align:center;padding:var(--space-8)">Keine Werte für den gewählten Filter.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = auditRanking.map((r, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>
+          <a href="#" style="color:var(--primary);text-decoration:none;font-weight:600"
+             onclick="loadAuditUserLog(${r.user_id}, '${jsEsc(r.username)}');return false;">
+            ${esc(r.username)}
+          </a>
+        </td>
+        <td>${Number(r.session_count || 0)}</td>
+        <td>${fmtDuration(r.total_seconds || 0)}</td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="4" style="color:var(--error);text-align:center;padding:var(--space-8)">${esc(e.message)}</td></tr>`;
+  }
+}
+
+async function loadAuditUserLog(userId, username) {
+  auditSelectedUser = { id: userId, username };
+  document.getElementById('detail-title').textContent = `Sitzungen von ${username}`;
+  openModal('user-detail-modal');
+
+  const tbody = document.getElementById('detail-body');
+  tbody.innerHTML = `<tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:var(--space-4)">Lädt…</td></tr>`;
+  document.getElementById('detail-total').textContent = "";
+
+  try {
+    const filters = getAuditFilters();
+    auditUserSessions = await api('/api/admin/logging/user/' + userId + '?' + qs(filters)) || [];
+    
+    if (!auditUserSessions.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:var(--space-4)">Keine Sitzungen im Zeitraum.</td></tr>`;
+      return;
+    }
+
+    let totalSec = 0;
+    tbody.innerHTML = auditUserSessions.map(s => {
+      totalSec += s.duration || 0;
+      return `<tr>
+        <td style="font-size:var(--text-xs);white-space:nowrap">${fmtDate(s.started_at)}</td>
+        <td style="font-size:var(--text-xs);white-space:nowrap">${fmtDate(s.ended_at)}</td>
+        <td>${fmtDuration(s.duration)}</td>
+        <td style="font-size:var(--text-xs)">${esc(s.image || '—')}</td>
+        <td style="font-size:var(--text-xs)">${esc(s.container_name || '—')}</td>
+        <td style="font-size:var(--text-xs);color:var(--text-muted)">${esc(s.container_ip || '—')}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('detail-total').textContent = `Gesamtdauer: ${fmtDuration(totalSec)}`;
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="6" style="color:var(--error);text-align:center;padding:var(--space-4)">${esc(e.message)}</td></tr>`;
+  }
+}
+
+function exportLog() {
+  const rows = [['Nutzer', 'Sitzungen', 'Gesamtzeit (s)']];
+  auditRanking.forEach(r => {
+    rows.push([ r.username || '', Number(r.session_count || 0), Math.floor(Number(r.total_seconds) || 0) ]);
+  });
+  const csv = rows.map(r => r.map(c => '"' + String(c).split('"').join('""') + '"').join(',')).join(String.fromCharCode(13) + String.fromCharCode(10));
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'audit-ranking.csv';
+  a.click();
+}
+
+function exportUserLog() {
+  if (!auditSelectedUser || !auditUserSessions.length) return;
+  const rows = [['Start', 'Ende', 'Dauer (s)', 'Docker-Image', 'Container', 'IP']];
+  auditUserSessions.forEach(s => {
+    rows.push([
+      s.started_at || '', s.ended_at || '', Math.floor(Number(s.duration) || 0),
+      s.image || '', s.container_name || '', s.container_ip || ''
+    ]);
+  });
+  const csv = rows.map(r => r.map(c => '"' + String(c).split('"').join('""') + '"').join(',')).join(String.fromCharCode(13) + String.fromCharCode(10));
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'audit-user-' + auditSelectedUser.username + '.csv';
+  a.click();
+}
+
 
 // ── Utilities ──────────────────────────────────────────────────────────
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
