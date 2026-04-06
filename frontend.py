@@ -1375,10 +1375,10 @@ function fmtDuration(seconds) {
 function jsEsc(s) {
   if (!s) return '';
   return String(s)
-    .split("\\").join("\\\\")
-    .split("'").join("\\'")
-    .split("\r").join(" ")
-    .split("\n").join(" ");
+    .split(String.fromCharCode(92)).join(String.fromCharCode(92) + String.fromCharCode(92))
+    .split(String.fromCharCode(39)).join(String.fromCharCode(92) + String.fromCharCode(39))
+    .split(String.fromCharCode(13)).join(' ')
+    .split(String.fromCharCode(10)).join(' ');
 }
 
 function fmtDuration(sec) {
@@ -1683,7 +1683,7 @@ function exportLog() {
 
   const csv = rows
     .map(r => r.map(c => '"' + String(c).split('"').join('""') + '"').join(','))
-    .join('\r\n');
+    .join(String.fromCharCode(13) + String.fromCharCode(10));
 
   const a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
