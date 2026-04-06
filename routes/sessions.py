@@ -94,7 +94,8 @@ async def start_session(request: Request, user: dict = Depends(get_current_user)
 
 
 @router.post("/api/session/stop")
-def api_stop_session(user: dict = Depends(get_current_user)):
+@router.delete("/api/session/{session_id}")
+def api_stop_session(session_id: str = None, user: dict = Depends(get_current_user)):
     session = db_get_session_by_user(user["uid"])
     if session:
         stop_container(session["container_name"])
@@ -137,6 +138,7 @@ def list_sessions(user: dict = Depends(get_current_user)):
 
 
 @router.post("/heartbeat/{session_id}")
+@router.post("/api/session/{session_id}/heartbeat")
 def heartbeat(session_id: str, request: Request):
     token = request.cookies.get("vbrowser_token")
     if not token or not validate_token(token):
