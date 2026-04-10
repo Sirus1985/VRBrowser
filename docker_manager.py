@@ -6,6 +6,53 @@ from config import PROFILES_BASE, PROXY_NETWORK, DOCKERHOST, BASE_DOMAIN
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Seccomp-Hilfsfunktionen (portiert aus multiversion)
+# ---------------------------------------------------------------------------
+
+def _parse_csv(value: str) -> list[str]:
+    return [item.strip().lower() for item in str(value).split(",") if item.strip()]
+
+def _env_bool(value: str) -> bool:
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+def build_security_opt(image_name: str) -> list[str] | None:
+    """Wertet ENV-Variablen aus und gibt security_opt fuer Docker zurueck.
+
+    ENV-Variablen:
+      BROWSER_SECCOMP_MODE    : off | unconfined | profile  (default: off)
+      BROWSER_SECCOMP_PROFILE : Pfad zum Seccomp-JSON       (default: /opt/vbrowser/seccomp_profile.json)
+      BROWSER_SECCOMP_IMAGES  : kommagetrennte Image-Basis  (default: jlesage/firefox)
+      BROWSER_SECCOMP_ALL_IMAGES: 1/true => alle Images     (default: false)
+    """
+    mode    = os.getenv("BROWSER_SECCOMP_MODE", "off").strip().lower()
+    profile = os.getenv("BROWSER_SECCOMP_PROFILE", "/opt/vbrowser/seccomp_profile.json").strip()
+    allowed = _parse_csv(os.getenv("BROWSER_SECCOMP_IMAGES", "jlesage/firefox"))
+    all_img = _env_bool(os.getenv("BROWSER_SECCOMP_ALL_IMAGES", "false"))
+
+    image_base = image_name.strip().lower().split(":")[0]
+    if not all_img and image_base not in allowed:
+        return None
+
+    if mode in {"", "off", "none", "false", "0"}:
+        return None
+
+    if mode == "unconfined":
+        return ["seccomp:unconfined"]
+
+    if mode == "profile":
+        if not os.path.isfile(profile):
+            logger.warning("Seccomp-Profil nicht gefunden: %s", profile)
+            return None
+        return [f"seccomp:{profile}"]
+
+    raise ValueError(f"Ungueltiger BROWSER_SECCOMP_MODE: '{mode}'")
+
+
+# ---------------------------------------------------------------------------
+# DockerManager
+# ---------------------------------------------------------------------------
+
 class DockerManager:
     def __init__(self):
         try:
@@ -78,6 +125,12 @@ class DockerManager:
         mem_limit = container_def.get("mem_limit")
         if mem_limit:
             kwargs["mem_limit"] = mem_limit
+
+        # Seccomp pro Image-Definition auswerten
+        security_opt = build_security_opt(container_def["image"])
+        if security_opt:
+            kwargs["security_opt"] = security_opt
+            logger.info("Seccomp gesetzt fuer %s: %s", container_def["image"], security_opt)
 
         logger.info("Starte Container '%s' mit Image '%s'", container_name, container_def["image"])
         return self.client.containers.run(**kwargs)

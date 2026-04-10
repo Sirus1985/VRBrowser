@@ -63,7 +63,14 @@ services:
       - ./routes:/app/routes
       - ./.data:/appdata
       - /var/run/docker.sock:/var/run/docker.sock
+      # Seccomp-Profil einbinden (nur benoetigt wenn BROWSER_SECCOMP_MODE=profile)
       - /opt/vbrowser/seccomp_profile.json:/opt/vbrowser/seccomp_profile.json:ro
+    environment:
+      # --- Seccomp-Konfiguration (optional) ---
+      # BROWSER_SECCOMP_MODE: off        # off | unconfined | profile
+      # BROWSER_SECCOMP_PROFILE: /opt/vbrowser/seccomp_profile.json
+      # BROWSER_SECCOMP_IMAGES: jlesage/firefox  # kommagetrennte Image-Basisnamen
+      # BROWSER_SECCOMP_ALL_IMAGES: "false"       # true = alle Images betreffen
     networks:
       - proxy
     depends_on:
