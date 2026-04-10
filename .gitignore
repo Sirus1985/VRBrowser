@@ -8,3 +8,4 @@ adguard/
 routes/__pycache__/
 /routes/__pycache__/*
 /routes/__pycache__
+.data/browser.db

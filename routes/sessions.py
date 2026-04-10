@@ -79,7 +79,15 @@ async def start_session(request: Request, user: dict = Depends(get_current_user)
         container = create_container(username, session_id, token, container_def)
         container_ip = get_container_ip(container)
 
-        register_session(session_id, user_id, username, container.name, token, container_ip)
+        register_session(
+            session_id,
+            user_id,
+            username,
+            container.name,
+            token,
+            container_ip,
+            container_def.get("image")
+        )
 
         url = f"https://{session_id[:8]}.{BASE_DOMAIN}/" if BASE_DOMAIN else f"http://{session_id[:8]}.localhost/"
         response = JSONResponse({
