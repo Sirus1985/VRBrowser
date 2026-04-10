@@ -380,7 +380,7 @@ table tbody tr:hover{background:var(--surface-offset)}
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Team</th><th>Mitglieder</th><th>Container</th><th>Aktionen</th></tr></thead>
+            <thead><tr><th>Team</th><th>Mitglieder</th><th>Container</th><th>Team-Admins</th><th>Aktionen</th></tr></thead>
             <tbody id="admin-teams-tbody"></tbody>
           </table>
         </div>
@@ -594,6 +594,35 @@ table tbody tr:hover{background:var(--surface-offset)}
   </div>
 </div>
 
+<!-- Modal: Nutzer bearbeiten -->
+<div id="modal-edit-user" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="edit-user-title">Nutzer bearbeiten</h2>
+      <button class="btn btn-icon btn-ghost" onclick="closeModal('modal-edit-user')" aria-label="Schließen">✕</button>
+    </div>
+    <form onsubmit="saveEditUser(event)">
+      <input type="hidden" id="edit-userid">
+      <div class="form-group"><label>Passwort (leer = nicht ändern)</label>
+        <input id="edit-password" class="form-control" type="password" placeholder="Neues Passwort…"></div>
+      <div class="form-group"><label>Team</label>
+        <select id="edit-user-team" class="form-control">
+          <option value="">— kein Team —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer">
+          <input type="checkbox" id="edit-isadmin" style="accent-color:var(--primary)"> Admin
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-edit-user')">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Modal: Nutzer anlegen -->
 <div id="modal-user" class="modal-backdrop">
   <div class="modal">
@@ -639,6 +668,35 @@ table tbody tr:hover{background:var(--surface-offset)}
         <button type="submit" class="btn btn-primary">Anlegen</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Modal: Team-Admins verwalten -->
+<div id="modal-team-admins" class="modal-backdrop">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <h2 id="team-admins-title">Team-Admins</h2>
+      <button class="btn btn-icon btn-ghost" onclick="closeModal('modal-team-admins')" aria-label="Schließen">✕</button>
+    </div>
+    <input type="hidden" id="team-admins-teamid">
+    <div style="margin-bottom:var(--space-4)">
+      <p style="font-size:var(--text-sm);color:var(--text-muted);margin-bottom:var(--space-3)">Aktuelle Team-Admins:</p>
+      <div id="team-admins-list" style="display:flex;flex-direction:column;gap:var(--space-2)">
+        <p style="font-size:var(--text-sm);color:var(--text-muted)">Lädt…</p>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--divider);padding-top:var(--space-4);margin-top:var(--space-2)">
+      <p style="font-size:var(--text-sm);color:var(--text-muted);margin-bottom:var(--space-3)">Nutzer zum Team-Admin ernennen:</p>
+      <div style="display:flex;gap:var(--space-2)">
+        <select id="team-admin-assign-user" class="form-control">
+          <option value="">— Nutzer wählen —</option>
+        </select>
+        <button type="button" class="btn btn-primary btn-sm" onclick="assignTeamAdmin()" style="white-space:nowrap">Ernennen</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="closeModal('modal-team-admins')">Schließen</button>
+    </div>
   </div>
 </div>
 
@@ -858,25 +916,21 @@ async function startSession() {
       body: JSON.stringify({container_def_id: selectedContainerDefId})
     });
 
-    // Cookie über verstecktes iFrame setzen
     const cookieFrame = document.createElement("iframe");
     cookieFrame.style.display = "none";
     const browserHost = new URL(data.url).host;
     cookieFrame.src = `https://${browserHost}/auth/set-cookie?token=${encodeURIComponent(data.token)}&redirect=${encodeURIComponent(data.url)}`;
     document.body.appendChild(cookieFrame);
 
-    // Sanduhr länger anzeigen (6 Sekunden), um Spam zu verhindern
     setTimeout(() => {
         document.body.removeChild(cookieFrame);
 
-        // Container ins Haupt-iFrame laden
         const frame = document.getElementById("browserFrame");
         frame.src = data.url;
 
         document.getElementById("session-title").textContent = data.container_def || "Browser";
         document.getElementById("session-fullscreen").style.display = "flex";
 
-        // Heartbeats starten (30s)
         if(activeSessionInterval) clearInterval(activeSessionInterval);
         activeSessionInterval = setInterval(async () => {
             try { await api(`/api/session/${data.session_id}/heartbeat`, {method: "POST"}); } catch(e) {}
@@ -884,9 +938,6 @@ async function startSession() {
 
         window.currentRunningSessionId = data.session_id;
         toast("Browser bereit", "ok");
-
-        // WICHTIG: Start-Button wird hier NICHT aktiviert! 
-        // Er bleibt deaktiviert, solange die Session läuft.
     }, 6000);
 
   } catch(e) {
@@ -934,15 +985,13 @@ async function connectSession(id) {
         const cookieFrame = document.createElement("iframe");
         cookieFrame.style.display = "none";
 
-        // Construct the URL properly via Traefik Subdomain
         let targetUrl = s.url;
         if (!targetUrl) {
             const hostId = s.container_name.replace("vbrowser-", "");
-            // Errate die Base Domain aus der aktuellen URL
             let baseParts = window.location.hostname.split('.');
             let baseDomain = window.location.hostname;
             if (baseParts.length > 2) {
-                baseDomain = baseParts.slice(1).join('.'); // z.B. vbrowser.de
+                baseDomain = baseParts.slice(1).join('.');
             }
             targetUrl = `https://${hostId}.${baseDomain}/`;
         }
@@ -974,7 +1023,6 @@ async function stopSession(id = null) {
   const btn = document.getElementById("btn-start");
 
   try {
-    // Ruft nun DELETE statt POST /stop auf. Dadurch wird der Container gestoppt UND aus der DB gelöscht!
     await api("/api/session/" + targetId, {method:"DELETE"});
     toast("Session beendet und entfernt.", "ok");
 
@@ -985,14 +1033,12 @@ async function stopSession(id = null) {
         window.currentRunningSessionId = null;
     }
 
-    // Admins haben noch die Übersicht, diese manuell laden
     if (currentUser && currentUser.isadmin && typeof loadAdminSessions === "function") {
         loadAdminSessions();
     }
   } catch(e) { 
     toast(e.message, "error"); 
   } finally {
-    // Start-Button erst nach dem endgültigen Beenden wieder freigeben
     if (btn) {
         btn.disabled = false;
         btn.textContent = "▶ Starten";
@@ -1176,11 +1222,49 @@ async function loadAdminUsers() {
         <td>${u.isadmin ? '<span class="badge badge-blue">Admin</span>' : '<span class="badge">Nutzer</span>'}</td>
         <td>${u.team_id ? esc(teamMap[u.team_id] || '?') : '<span style="color:var(--text-faint)">—</span>'}</td>
         <td style="font-size:var(--text-xs);color:var(--text-muted)">${fmtDate(u.created_at)}</td>
-        <td><button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id},'${esc(u.username)}')">Löschen</button></td>
+        <td>
+          <div style="display:flex;gap:var(--space-2)">
+            <button class="btn btn-sm btn-secondary" onclick="openEditUserModal(${u.id},'${jsEsc(u.username)}',${u.isadmin ? 'true' : 'false'},${u.team_id || 'null'})">Bearbeiten</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id},'${jsEsc(u.username)}')">Löschen</button>
+          </div>
+        </td>
       </tr>`).join('');
   } catch(e) {
     tbody.innerHTML = '<tr><td colspan="5" style="color:var(--error)">' + esc(e.message) + '</td></tr>';
   }
+}
+
+async function openEditUserModal(id, username, isadmin, team_id) {
+  document.getElementById('edit-userid').value = id;
+  document.getElementById('edit-user-title').textContent = 'Nutzer bearbeiten: ' + username;
+  document.getElementById('edit-password').value = '';
+  document.getElementById('edit-isadmin').checked = isadmin;
+
+  const teams = await api('/api/admin/teams') || [];
+  const sel = document.getElementById('edit-user-team');
+  sel.innerHTML = '<option value="">— kein Team —</option>' +
+    teams.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+
+  sel.value = team_id ? String(team_id) : '';
+  openModal('modal-edit-user');
+}
+
+async function saveEditUser(e) {
+  e.preventDefault();
+  const id = document.getElementById('edit-userid').value;
+  const body = {};
+  const pw = document.getElementById('edit-password').value;
+  if (pw) body.password = pw;
+  body.isadmin = document.getElementById('edit-isadmin').checked;
+  const tid = parseInt(document.getElementById('edit-user-team').value);
+  body.team_id = isNaN(tid) ? null : tid;
+  try {
+    await api('/api/admin/users/' + id, {method:'PATCH', body: JSON.stringify(body)});
+    toast('Nutzer aktualisiert.', 'ok');
+    closeModal('modal-edit-user');
+    loadAdminUsers();
+    loadKPIs();
+  } catch(err) { toast(err.message, 'error'); }
 }
 
 async function openNewUserModal() {
@@ -1224,19 +1308,91 @@ async function loadAdminTeams() {
     const [teams, users, containers] = await Promise.all([
       api('/api/admin/teams'), api('/api/admin/users'), api('/api/admin/containers')
     ]);
+    const teamAdminsMap = {};
+    await Promise.all((teams||[]).map(async t => {
+      const admins = await api('/api/admin/teams/' + t.id + '/admins') || [];
+      teamAdminsMap[t.id] = admins;
+    }));
     tbody.innerHTML = (teams||[]).map(t => {
       const members = (users||[]).filter(u => u.team_id === t.id).length;
       const assigned = (containers||[]).filter(c => c.team_ids && c.team_ids.includes(t.id)).length;
+      const admins = teamAdminsMap[t.id] || [];
+      const adminBadges = admins.length
+        ? admins.map(a => `<span class="badge badge-blue" style="margin-right:2px">${esc(a.username)}</span>`).join('')
+        : '<span style="color:var(--text-faint)">—</span>';
       return `<tr>
         <td><strong>${esc(t.name)}</strong></td>
         <td>${members}</td>
         <td>${assigned || '<span style="color:var(--text-faint)">alle</span>'}</td>
-        <td><button class="btn btn-sm btn-danger" onclick="deleteTeam(${t.id},'${esc(t.name)}')">Löschen</button></td>
+        <td>${adminBadges}</td>
+        <td>
+          <div style="display:flex;gap:var(--space-2)">
+            <button class="btn btn-sm btn-secondary" onclick="openTeamAdminsModal(${t.id},'${jsEsc(t.name)}')">Admins</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteTeam(${t.id},'${jsEsc(t.name)}')">Löschen</button>
+          </div>
+        </td>
       </tr>`;
     }).join('');
   } catch(e) {
-    tbody.innerHTML = '<tr><td colspan="4" style="color:var(--error)">' + esc(e.message) + '</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--error)">' + esc(e.message) + '</td></tr>';
   }
+}
+
+async function openTeamAdminsModal(teamId, teamName) {
+  document.getElementById('team-admins-teamid').value = teamId;
+  document.getElementById('team-admins-title').textContent = 'Team-Admins: ' + teamName;
+  openModal('modal-team-admins');
+  await loadTeamAdmins(teamId);
+}
+
+async function loadTeamAdmins(teamId) {
+  if (!teamId) teamId = document.getElementById('team-admins-teamid').value;
+  const listEl = document.getElementById('team-admins-list');
+  const selEl = document.getElementById('team-admin-assign-user');
+  try {
+    const [admins, allUsers] = await Promise.all([
+      api('/api/admin/teams/' + teamId + '/admins') || [],
+      api('/api/admin/users') || []
+    ]);
+    const adminIds = (admins||[]).map(a => a.id);
+
+    if (!admins || !admins.length) {
+      listEl.innerHTML = '<p style="font-size:var(--text-sm);color:var(--text-muted)">Keine Team-Admins zugewiesen.</p>';
+    } else {
+      listEl.innerHTML = (admins||[]).map(a => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) 0;border-bottom:1px solid var(--divider)">
+          <span style="font-size:var(--text-sm)">${esc(a.username)}</span>
+          <button class="btn btn-sm btn-danger" onclick="removeTeamAdmin(${teamId},${a.id})">Entfernen</button>
+        </div>`).join('');
+    }
+
+    const eligible = (allUsers||[]).filter(u => !u.isadmin && !adminIds.includes(u.id));
+    selEl.innerHTML = '<option value="">— Nutzer wählen —</option>' +
+      eligible.map(u => `<option value="${u.id}">${esc(u.username)}</option>`).join('');
+  } catch(e) {
+    listEl.innerHTML = '<p style="color:var(--error)">' + esc(e.message) + '</p>';
+  }
+}
+
+async function assignTeamAdmin() {
+  const teamId = document.getElementById('team-admins-teamid').value;
+  const userId = parseInt(document.getElementById('team-admin-assign-user').value);
+  if (!userId) { toast('Bitte einen Nutzer wählen.', 'error'); return; }
+  try {
+    await api('/api/admin/teams/' + teamId + '/admins', {method:'POST', body: JSON.stringify({user_id: userId})});
+    toast('Team-Admin ernannt.', 'ok');
+    await loadTeamAdmins(teamId);
+    loadAdminTeams();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function removeTeamAdmin(teamId, userId) {
+  try {
+    await api('/api/admin/teams/' + teamId + '/admins/' + userId, {method:'DELETE'});
+    toast('Team-Admin entfernt.', 'ok');
+    await loadTeamAdmins(teamId);
+    loadAdminTeams();
+  } catch(e) { toast(e.message, 'error'); }
 }
 
 function openNewTeamModal() { openModal('modal-team'); }
@@ -1293,7 +1449,6 @@ async function loadAdminSessions() {
 }
 
 // ── Admin: Audit-Log ───────────────────────────────────────────────────
-// ── Log / Ranking ────────────────────────────────────────────────────────
 function showPeriodFields(prefix) {
     const p = document.getElementById(prefix + "period").value;
     ["year", "month", "week", "day"].forEach(f => {
@@ -1335,18 +1490,6 @@ function buildLogParams(prefix) {
     return qs;
 }
 
-function fmtDuration(seconds) {
-    if (!seconds) return "0s";
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    let res = [];
-    if (h > 0) res.push(h + "h");
-    if (m > 0) res.push(m + "m");
-    if (s > 0 || res.length === 0) res.push(s + "s");
-    return res.join(" ");
-}
-
 function jsEsc(s) {
   if (!s) return '';
   return String(s)
@@ -1372,258 +1515,6 @@ function qs(params) {
     if (v !== undefined && v !== null && v !== '') sp.set(k, String(v));
   });
   return sp.toString();
-}
-
-function getAuditFilters() {
-  return {
-    period: document.getElementById('audit-period')?.value || 'month',
-    year: parseInt(document.getElementById('audit-year')?.value || '') || null,
-    month: parseInt(document.getElementById('audit-month')?.value || '') || null,
-    week: parseInt(document.getElementById('audit-week')?.value || '') || null,
-    day: parseInt(document.getElementById('audit-day')?.value || '') || null,
-    image: document.getElementById('audit-image')?.value || null,
-    container_name: document.getElementById('audit-container-name')?.value.trim() || null,
-  };
-}
-
-function syncAuditFilterVisibility() {
-  const period = document.getElementById('audit-period')?.value || 'month';
-  const year = document.getElementById('audit-year');
-  const month = document.getElementById('audit-month');
-  const week = document.getElementById('audit-week');
-  const day = document.getElementById('audit-day');
-
-  if (!year || !month || !week || !day) return;
-
-  year.disabled = period === 'all';
-  month.disabled = !['month', 'day'].includes(period);
-  week.disabled = period !== 'week';
-  day.disabled = period !== 'day';
-}
-
-function resetAuditFilters() {
-  const now = new Date();
-  document.getElementById('audit-period').value = 'month';
-  document.getElementById('audit-year').value = now.getFullYear();
-  document.getElementById('audit-month').value = now.getMonth() + 1;
-  document.getElementById('audit-week').value = '';
-  document.getElementById('audit-day').value = '';
-  document.getElementById('audit-image').value = '';
-  document.getElementById('audit-container-name').value = '';
-  auditSelectedUser = null;
-  syncAuditFilterVisibility();
-  loadAdminLog();
-}
-
-async function loadAuditContainerFilter() {
-  const sel = document.getElementById('audit-image');
-  if (!sel) return;
-
-  const defs = await api('/api/admin/containers') || [];
-  const current = sel.value || '';
-
-  sel.innerHTML =
-    '<option value="">Alle Docker-Container</option>' +
-    defs.map(cd => `<option value="${esc(cd.image)}">${esc(cd.name)} (${esc(cd.image)})</option>`).join('');
-
-  sel.value = current;
-  auditContainersLoaded = true;
-}
-
-function renderAuditRanking() {
-  const tbody = document.getElementById('admin-log-ranking-tbody');
-
-  if (!auditRanking.length) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="4" style="color:var(--text-muted);text-align:center;padding:var(--space-8)">
-          Keine Werte für den gewählten Filter.
-        </td>
-      </tr>`;
-    return;
-  }
-
-  tbody.innerHTML = auditRanking.map((r, i) => `
-    <tr>
-      <td>${i + 1}</td>
-      <td>
-        <a href="#"
-           style="color:var(--primary);text-decoration:none;font-weight:600"
-           onclick="loadAuditUserLog(${r.user_id}, '${jsEsc(r.username)}');return false;">
-          ${esc(r.username)}
-        </a>
-      </td>
-      <td>${Number(r.session_count || 0)}</td>
-      <td>${fmtDuration(r.total_seconds || 0)}</td>
-    </tr>
-  `).join('');
-}
-
-
-
-async function loadAuditUserLog(userId, username) {
-  auditSelectedUser = { id: userId, username };
-  document.getElementById('admin-log-selected-user').textContent = username;
-  document.getElementById('admin-log-user-box').style.display = 'block';
-
-  const filters = getAuditFilters();
-  auditUserSessions = await api('/api/admin/logging/user/' + userId + '?' + qs(filters)) || [];
-  logData = auditUserSessions;
-
-}
-
-
-async function loadAdminLog() {
-  const rankingTbody = document.getElementById('admin-log-ranking-tbody');
-  const detailsTbody = document.getElementById('admin-log-tbody');
-
-  try {
-    if (!document.getElementById('audit-year').value) {
-      const now = new Date();
-      document.getElementById('audit-year').value = now.getFullYear();
-      document.getElementById('audit-month').value = now.getMonth() + 1;
-    }
-
-    syncAuditFilterVisibility();
-
-    if (!auditContainersLoaded) {
-      await loadAuditContainerFilter();
-    }
-
-    rankingTbody.innerHTML = `
-      <tr>
-        <td colspan="4" style="color:var(--text-muted);text-align:center;padding:var(--space-8)">Lädt…</td>
-      </tr>`;
-
-    if (!auditSelectedUser) {
-      detailsTbody.innerHTML = `
-        <tr>
-          <td colspan="6" style="color:var(--text-muted);text-align:center;padding:var(--space-8)">
-            Bitte oben einen Nutzer auswählen.
-          </td>
-        </tr>`;
-    }
-
-    const filters = getAuditFilters();
-    auditRanking = await api('/api/admin/logging/ranking?' + qs(filters)) || [];
-    renderAuditRanking();
-
-    if (auditSelectedUser?.id) {
-      await loadAuditUserLog(auditSelectedUser.id, auditSelectedUser.username);
-    }
-  } catch (e) {
-    rankingTbody.innerHTML = `
-      <tr>
-        <td colspan="4" style="color:var(--error);text-align:center;padding:var(--space-8)">
-          ${esc(e.message)}
-        </td>
-      </tr>`;
-    detailsTbody.innerHTML = `
-      <tr>
-        <td colspan="6" style="color:var(--error);text-align:center;padding:var(--space-8)">
-          ${esc(e.message)}
-        </td>
-      </tr>`;
-  }
-}
-
-async function loadRanking() {
-  const params = buildLogParams("log-");
-  const tbody = document.getElementById("admin-log-tbody");
-  tbody.innerHTML = "<tr><td colspan='4' style='color:var(--text-muted);text-align:center'>Lädt…</td></tr>";
-  try {
-    const data = await api("/api/admin/logging/ranking?" + params) || [];
-    if (!data.length) {
-      tbody.innerHTML = "<tr><td colspan='4' style='color:var(--text-muted);text-align:center'>Keine Daten gefunden.</td></tr>";
-      return;
-    }
-    tbody.innerHTML = data.map((r, i) => `
-      <tr>
-        <td style="color:var(--text-muted)">${i + 1}</td>
-        <td><a href="#" onclick="openUserDetail(${r.user_id}, '${esc(r.username)}');return false" style="color:var(--primary);text-decoration:none;font-weight:500">${esc(r.username)}</a></td>
-        <td style="text-align:right">${r.session_count}</td>
-        <td style="text-align:right">${fmtDuration(r.total_seconds)}</td>
-      </tr>`).join('');
-  } catch(e) {
-    tbody.innerHTML = '<tr><td colspan="4" style="color:var(--error);text-align:center">' + esc(e.message) + '</td></tr>';
-  }
-}
-
-let _detailUserId = null;
-async function openUserDetail(userId, username) {
-    _detailUserId = userId;
-    document.getElementById("detail-title").textContent = `Sitzungen: ${username}`;
-    document.getElementById("detail-period").value = "all";
-    showPeriodFields("detail-");
-    openModal("user-detail-modal");
-    await loadUserDetail();
-}
-
-async function loadUserDetail() {
-    if (!_detailUserId) return;
-    const params = buildLogParams("detail-");
-    const tbody = document.getElementById("detail-body");
-    tbody.innerHTML = "<tr><td colspan='4' style='color:var(--text-muted);text-align:center'>Lädt…</td></tr>";
-    document.getElementById("detail-total").textContent = "";
-    try {
-        const data = await api(`/api/admin/logging/user/${_detailUserId}?` + params) || [];
-        if (!data.length) {
-            tbody.innerHTML = "<tr><td colspan='4' style='color:var(--text-muted);text-align:center'>Keine Sitzungen.</td></tr>";
-            return;
-        }
-        let totalSec = 0;
-        tbody.innerHTML = data.map(r => {
-            totalSec += r.duration || 0;
-            return `<tr>
-              <td style="font-size:var(--text-xs);color:var(--text-muted)">${esc(r.image || 'Unbekannt')}</td>
-              <td>${esc(r.container_name)}</td>
-              <td>${fmtDate(r.started_at)}</td>
-              <td>${fmtDuration(r.duration)}</td>
-            </tr>`;
-        }).join('');
-        document.getElementById("detail-total").textContent = `Gesamtdauer: ${fmtDuration(totalSec)}`;
-    } catch(e) {
-        tbody.innerHTML = '<tr><td colspan="4" style="color:var(--error);text-align:center">' + esc(e.message) + '</td></tr>';
-    }
-}
-
-
-function exportLog() {
-  let rows = [];
-  let filename = 'audit-ranking.csv';
-
-  if (auditSelectedUser && auditUserSessions.length) {
-    rows = [['Start', 'Ende', 'Dauer (s)', 'Docker-Image', 'Container', 'IP']];
-    auditUserSessions.forEach(s => {
-      rows.push([
-        s.started_at || '',
-        s.ended_at || '',
-        Math.floor(Number(s.duration) || 0),
-        s.image || '',
-        s.container_name || '',
-        s.container_ip || ''
-      ]);
-    });
-    filename = 'audit-user-' + auditSelectedUser.username + '.csv';
-  } else {
-    rows = [['Nutzer', 'Sitzungen', 'Gesamtzeit (s)']];
-    auditRanking.forEach(r => {
-      rows.push([
-        r.username || '',
-        Number(r.session_count || 0),
-        Math.floor(Number(r.total_seconds) || 0),
-      ]);
-    });
-  }
-
-  const csv = rows
-    .map(r => r.map(c => '"' + String(c).split('"').join('""') + '"').join(','))
-    .join(String.fromCharCode(13) + String.fromCharCode(10));
-
-  const a = document.createElement('a');
-  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-  a.download = filename;
-  a.click();
 }
 
 function getAuditFilters() {
@@ -1662,7 +1553,6 @@ function resetAuditFilters() {
   document.getElementById('audit-day').value = '';
   document.getElementById('audit-image').value = '';
   document.getElementById('audit-user-name').value = '';
-  
   syncAuditFilterVisibility();
   loadAdminLog();
 }
@@ -1785,7 +1675,6 @@ function exportUserLog() {
   a.download = 'audit-user-' + auditSelectedUser.username + '.csv';
   a.click();
 }
-
 
 // ── Utilities ──────────────────────────────────────────────────────────
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
