@@ -13,7 +13,7 @@ from routes.sessions import router as sessions_router
 from routes.admin_logging import router as admin_logging_router
 from routes.containers import router as containers_admin_router
 from routes.containers import user_router as containers_user_router
-from session_manager import cleanup_loop
+from session_manager import cleanup_loop, cleanup_orphaned_containers
 from frontend import get_html
 
 logging.basicConfig(
@@ -35,6 +35,7 @@ app.include_router(containers_user_router)
 @app.on_event("startup")
 def startup():
     initdb()
+    cleanup_orphaned_containers()
     threading.Thread(target=cleanup_loop, daemon=True).start()
 
 

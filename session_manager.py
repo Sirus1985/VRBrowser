@@ -10,13 +10,15 @@ from database import (
     db_get_session_by_token,
     db_get_session_by_id,       # NEU: RFC-02 Heartbeat-Validierung via session_id
 )
-# KORREKTUR: Wir importieren stop_container und client direkt
 from docker_manager import stop_container, client
 
 logger = logging.getLogger(__name__)
 
+SYSTEM_CONTAINERS = {"vbrowser-backend", "vbrowser-traefik"}
+SYSTEM_PREFIXES   = ("vbrowser-db",)
+
+
 def register_session(session_id: str, user_id: int, username: str, container_name: str, token: str, container_ip: str = None, image: str = None):
-    # Jetzt mit dem image Parameter!
     db_create_session(session_id, user_id, username, container_name, token, container_ip, image)
 
 def update_heartbeat(session_id: str):
@@ -24,6 +26,22 @@ def update_heartbeat(session_id: str):
 
 def validate_token(token: str) -> bool:
     return db_get_session_by_token(token) is not None
+
+
+def cleanup_orphaned_containers():
+    try:
+        active = {s["container_name"] for s in db_list_sessions()}
+        for c in client.containers.list():
+            is_system = c.name in SYSTEM_CONTAINERS or any(
+                c.name.startswith(p) for p in SYSTEM_PREFIXES
+            )
+            if c.name.startswith("vbrowser-") and not is_system:
+                if c.name not in active:
+                    stop_container(c.name)
+                    logger.info("Startup cleanup: removed orphan %s", c.name)
+    except Exception as e:
+        logger.warning("Startup cleanup failed: %s", e)
+
 
 def cleanup_loop():
     logger.info("Cleanup-Loop gestartet (Timeout=%ss, MaxDuration=%ss)", SESSION_TIMEOUT, MAX_SESSION_DURATION)
@@ -53,16 +71,16 @@ def cleanup_loop():
                         db_delete_session(s["session_id"])
 
             # 3. Verwaiste Docker-Container aufräumen
-            # (Container, die "vbrowser-" heißen, aber nicht in der DB stehen)
             all_sessions = db_list_sessions()
             valid_containers = {s["container_name"] for s in all_sessions}
 
             try:
-                # KORREKTUR: Wir nutzen das direkte client-Objekt
                 containers = client.containers.list()
                 for c in containers:
-                    # Ignoriere alle Basis-Container wie vbrowser-backend, vbrowser-frontend, etc.
-                    if c.name.startswith("vbrowser-") and c.name != "vbrowser-backend" and not c.name.startswith("vbrowser-db")and not c.name.startswith("vbrowser-traefik"):
+                    is_system = c.name in SYSTEM_CONTAINERS or any(
+                        c.name.startswith(p) for p in SYSTEM_PREFIXES
+                    )
+                    if c.name.startswith("vbrowser-") and not is_system:
                         if c.name not in valid_containers:
                             logger.info(f"Verwaisten Container gefunden: {c.name}. Stoppe ihn...")
                             try:
