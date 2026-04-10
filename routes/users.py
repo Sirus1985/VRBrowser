@@ -9,12 +9,12 @@ from database import (
 from auth import require_admin_or_teamadmin
 from docker_manager import stop_container
 
-# PREFIX auf /api/admin/users geändert
 router = APIRouter(prefix="/api/admin/users", tags=["users"])
 
 class UpdateUser(BaseModel):
     team_id:  Optional[int] = None
     password: Optional[str] = None
+    isadmin:  Optional[bool] = None
 
 @router.get("")
 def list_users(user: dict = Depends(require_admin_or_teamadmin)):
@@ -50,8 +50,15 @@ def update_user(userid: int, body: UpdateUser, user: dict = Depends(require_admi
         raise HTTPException(404, "User not found")
     if target["username"] == "admin":
         raise HTTPException(400, "Cannot modify default admin")
-    if target["isadmin"]:
+
+    # isadmin-Änderung nur durch Superadmin
+    if body.isadmin is not None and not user.get("admin"):
+        raise HTTPException(403, "Only superadmin can change admin rights")
+
+    # Team-Admin darf keine Superadmins bearbeiten
+    if target["isadmin"] and not user.get("admin"):
         raise HTTPException(400, "Cannot modify Superadmin")
+
     if not user.get("admin"):
         if not target["team_id"] or not db_is_team_admin(user["uid"], target["team_id"]):
             raise HTTPException(403, "Not your team")
@@ -62,8 +69,13 @@ def update_user(userid: int, body: UpdateUser, user: dict = Depends(require_admi
     data = {}
     if body.team_id is not None:
         data["team_id"] = body.team_id
-    if body.password is not None:
+    if body.password is not None and body.password != "":
         data["password"] = body.password
+    if body.isadmin is not None:
+        data["isadmin"] = body.isadmin
+        # Admin darf kein Team haben
+        if body.isadmin:
+            data["team_id"] = None
     if data:
         db_update_user(userid, data)
     return {"status": "ok"}
