@@ -11,3 +11,6 @@ routes/__pycache__/
 .data/browser.db
 .data/browser.db
 routes/__pycache__/sessions.cpython-311.pyc
+.data/browser.db
+.data/browser.db
+browser.db
