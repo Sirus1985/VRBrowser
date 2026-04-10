@@ -534,6 +534,18 @@ table tbody tr:hover{background:var(--surface-offset)}
       </div>
       <div class="form-row">
         <div class="form-group">
+          <label for="cdef-timeout">Session-Timeout (Sek., leer = global)</label>
+          <input id="cdef-timeout" class="form-control" type="number" min="60" placeholder="z.B. 900">
+          <p class="form-hint">Überschreibt SESSION_TIMEOUT aus der .env</p>
+        </div>
+        <div class="form-group">
+          <label for="cdef-maxduration">Max. Session-Dauer (Sek., leer = global)</label>
+          <input id="cdef-maxduration" class="form-control" type="number" min="60" placeholder="z.B. 7200">
+          <p class="form-hint">Überschreibt MAX_SESSION_DURATION aus der .env</p>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
           <label for="cdef-restart">Neustart-Policy</label>
           <select id="cdef-restart" class="form-control">
             <option value="no">no</option>
@@ -1065,6 +1077,8 @@ async function openContainerModal(defId) {
     document.getElementById('cdef-shm').value = cd.shm_size;
     document.getElementById('cdef-cpu').value = cd.cpu_limit || '';
     document.getElementById('cdef-mem').value = cd.mem_limit || '';
+    document.getElementById('cdef-timeout').value = cd.session_timeout || '';
+    document.getElementById('cdef-maxduration').value = cd.max_session_duration || '';
     document.getElementById('cdef-restart').value = cd.restart_policy;
     document.getElementById('cdef-desc').value = cd.description || '';
     document.getElementById('cdef-default').checked = cd.is_default;
@@ -1075,7 +1089,7 @@ async function openContainerModal(defId) {
     });
   } else {
     document.getElementById('modal-container-title').textContent = 'Container hinzufügen';
-    ['cdef-name','cdef-image','cdef-cpu','cdef-mem','cdef-desc'].forEach(id =>
+    ['cdef-name','cdef-image','cdef-cpu','cdef-mem','cdef-timeout','cdef-maxduration','cdef-desc'].forEach(id =>
       document.getElementById(id).value = '');
     document.getElementById('cdef-port').value = 5800;
     document.getElementById('cdef-shm').value = '2g';
@@ -1116,6 +1130,8 @@ async function saveContainer(e) {
     shm_size: document.getElementById('cdef-shm').value.trim() || '2g',
     cpu_limit: parseFloat(document.getElementById('cdef-cpu').value) || null,
     mem_limit: document.getElementById('cdef-mem').value.trim() || null,
+    session_timeout: parseInt(document.getElementById('cdef-timeout').value) || null,
+    max_session_duration: parseInt(document.getElementById('cdef-maxduration').value) || null,
     restart_policy: document.getElementById('cdef-restart').value,
     description: document.getElementById('cdef-desc').value.trim() || null,
     is_default: document.getElementById('cdef-default').checked,
