@@ -6,8 +6,9 @@ from database import (
     db_list_sessions,
     db_delete_session,
     db_create_session,
-    db_update_heartbeat,        # <-- NEU 
-    db_get_session_by_token     # <-- NEU
+    db_update_heartbeat,
+    db_get_session_by_token,
+    db_get_session_by_id,       # NEU: RFC-02 Heartbeat-Validierung via session_id
 )
 # KORREKTUR: Wir importieren stop_container und client direkt
 from docker_manager import stop_container, client
