@@ -40,6 +40,8 @@ class NewContainerDef(BaseModel):
     is_default: bool = False
     env_vars: List[ContainerEnvVar] = []
     team_ids: List[int] = []            # leere Liste = alle Teams
+    session_timeout: Optional[int] = None        # Sekunden; None = globaler Wert
+    max_session_duration: Optional[int] = None   # Sekunden; None = globaler Wert
 
 
 class UpdateContainerDef(BaseModel):
@@ -54,6 +56,8 @@ class UpdateContainerDef(BaseModel):
     is_default: Optional[bool] = None
     env_vars: Optional[List[ContainerEnvVar]] = None
     team_ids: Optional[List[int]] = None
+    session_timeout: Optional[int] = None        # Sekunden; None = globaler Wert
+    max_session_duration: Optional[int] = None   # Sekunden; None = globaler Wert
 
 
 class StartSessionRequest(BaseModel):
