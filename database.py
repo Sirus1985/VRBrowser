@@ -373,7 +373,7 @@ def db_close_session(session_id: str):
                    (user_id, username, container_name, container_ip, started_at, ended_at, duration, image)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 (row["user_id"], row["username"], row["container_name"], row["container_ip"],
-                 row["created_at"], ended_at, duration, row["image"])  # <--- HIER IST DIE KORREKTUR
+                 row["created_at"], ended_at, duration, row["image"])
             )
             conn.execute("DELETE FROM sessions WHERE session_id=?", (session_id,))
             conn.commit()
@@ -405,6 +405,10 @@ def db_list_sessions(user_id: int = None):
 def db_get_session_by_token(token: str):
     with get_conn() as conn:
         return to_dict(conn.execute("SELECT * FROM sessions WHERE token=?", (token,)).fetchone())
+
+def db_get_session_by_id(session_id: str):
+    with get_conn() as conn:
+        return to_dict(conn.execute("SELECT * FROM sessions WHERE session_id=?", (session_id,)).fetchone())
 
 def db_get_session_by_user(user_id: int):
     with get_conn() as conn:
