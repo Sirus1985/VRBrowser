@@ -13,6 +13,7 @@ from config import BASE_DOMAIN, USE_TLS
 from session_manager import register_session, update_heartbeat, validate_token
 from database import (
     db_get_session_by_user,
+    db_get_session_by_id,
     db_delete_session,
     db_update_user_settings,
     db_get_user_settings,
@@ -168,10 +169,10 @@ def list_sessions(user: dict = Depends(get_current_user)):
 
 @router.post("/heartbeat/{session_id}")
 @router.post("/api/session/{session_id}/heartbeat")
-def heartbeat(session_id: str, request: Request):
-    token = request.cookies.get("vbrowser_token")
-    if not token or not validate_token(token):
-        return Response(status_code=401)
+def heartbeat(session_id: str):
+    session = db_get_session_by_id(session_id)
+    if not session:
+        return Response(status_code=404)
     update_heartbeat(session_id)
     return Response(status_code=204)
 
