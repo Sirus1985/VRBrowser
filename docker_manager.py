@@ -108,3 +108,12 @@ def container_exists(container_name: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def is_container_running(container_name: str) -> bool:
+    """True nur wenn Container existiert UND status == 'running'."""
+    try:
+        c = client.containers.get(container_name)
+        return c.status == "running"
+    except Exception:
+        return False

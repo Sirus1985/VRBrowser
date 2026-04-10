@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from datetime import datetime, timezone
 
 from auth import get_current_user, require_admin
-from docker_manager import create_container, stop_container, container_exists, get_container_ip
+from docker_manager import create_container, stop_container, container_exists, is_container_running, get_container_ip
 from config import BASE_DOMAIN, USE_TLS
 from session_manager import register_session, update_heartbeat, validate_token
 from database import (
@@ -39,8 +39,8 @@ async def start_session(request: Request, user: dict = Depends(get_current_user)
 
     existing = db_get_session_by_user(user_id)
     if existing:
-        # Prüfen, ob der Container wirklich noch in Docker existiert
-        if container_exists(existing["container_name"]):
+        # Prüfen, ob der Container wirklich läuft (nicht nur existiert)
+        if is_container_running(existing["container_name"]):
             token = existing["token"]
             session_id = existing["session_id"]
             url = f"https://{session_id[:8]}.{BASE_DOMAIN}/" if BASE_DOMAIN else f"http://{session_id[:8]}.localhost/"
@@ -54,7 +54,7 @@ async def start_session(request: Request, user: dict = Depends(get_current_user)
             )
             return response
         else:
-            # Geister-Session aus der DB löschen, da der Container tot ist
+            # Container existiert nicht oder läuft nicht → Geister-Session entfernen
             db_delete_session(existing["session_id"])
 
     body = {}
@@ -76,7 +76,6 @@ async def start_session(request: Request, user: dict = Depends(get_current_user)
         session_id = str(uuid.uuid4())
         token = secrets.token_urlsafe(32)
 
-        # HIER fangen wir den Fehler ab:
         container = create_container(username, session_id, token, container_def)
         container_ip = get_container_ip(container)
 
@@ -125,7 +124,7 @@ def session_status(user: dict = Depends(get_current_user)):
     if not session: 
         return {"active": False}
     return {
-        "active": container_exists(session["container_name"]),
+        "active": is_container_running(session["container_name"]),
         "session_id": session["session_id"],
         "container_name": session["container_name"],
     }
