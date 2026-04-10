@@ -623,31 +623,30 @@ table tbody tr:hover{background:var(--surface-offset)}
   </div>
 </div>
 
-<!-- Modal: Nutzer anlegen -->
-<div id="modal-user" class="modal-backdrop">
+<!-- Modal: Nutzer bearbeiten -->
+<div id="modal-edit-user" class="modal-backdrop">
   <div class="modal">
     <div class="modal-header">
-      <h2>Nutzer anlegen</h2>
-      <button class="btn btn-icon btn-ghost" onclick="closeModal('modal-user')" aria-label="Schließen">✕</button>
+      <h2 id="edit-user-title">Nutzer bearbeiten</h2>
+      <button class="btn btn-icon btn-ghost" onclick="closeModal('modal-edit-user')" aria-label="Schließen">✕</button>
     </div>
-    <form onsubmit="createUser(event)">
-      <div class="form-group"><label>Benutzername *</label>
-        <input id="new-username" class="form-control" required></div>
-      <div class="form-group"><label>Passwort *</label>
-        <input id="new-password" class="form-control" type="password" required></div>
+    <form onsubmit="saveEditUser(event)">
+      <input type="hidden" id="edit-userid">
+      <div class="form-group"><label>Passwort (leer = nicht ändern)</label>
+        <input id="edit-password" class="form-control" type="password"></div>
       <div class="form-group"><label>Team</label>
-        <select id="new-user-team" class="form-control">
+        <select id="edit-user-team" class="form-control">
           <option value="">— kein Team —</option>
         </select>
       </div>
       <div class="form-group">
         <label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer">
-          <input type="checkbox" id="new-isadmin" style="accent-color:var(--primary)"> Admin
+          <input type="checkbox" id="edit-isadmin" style="accent-color:var(--primary)"> Admin
         </label>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-user')">Abbrechen</button>
-        <button type="submit" class="btn btn-primary">Anlegen</button>
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-edit-user')">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Speichern</button>
       </div>
     </form>
   </div>
@@ -1222,12 +1221,7 @@ async function loadAdminUsers() {
         <td>${u.isadmin ? '<span class="badge badge-blue">Admin</span>' : '<span class="badge">Nutzer</span>'}</td>
         <td>${u.team_id ? esc(teamMap[u.team_id] || '?') : '<span style="color:var(--text-faint)">—</span>'}</td>
         <td style="font-size:var(--text-xs);color:var(--text-muted)">${fmtDate(u.created_at)}</td>
-        <td>
-          <div style="display:flex;gap:var(--space-2)">
-            <button class="btn btn-sm btn-secondary" onclick="openEditUserModal(${u.id},'${jsEsc(u.username)}',${u.isadmin ? 'true' : 'false'},${u.team_id || 'null'})">Bearbeiten</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id},'${jsEsc(u.username)}')">Löschen</button>
-          </div>
-        </td>
+        <td><button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id},'${esc(u.username)}')">Löschen</button></td>
       </tr>`).join('');
   } catch(e) {
     tbody.innerHTML = '<tr><td colspan="5" style="color:var(--error)">' + esc(e.message) + '</td></tr>';
@@ -1291,14 +1285,44 @@ async function createUser(e) {
   } catch(e) { toast(e.message, 'error'); }
 }
 
-async function deleteUser(id, name) {
-  if (!confirm('Nutzer "' + name + '" löschen?')) return;
+async function openEditUserModal(id, username, isadmin, team_id) {
+  document.getElementById('edit-userid').value = id;
+  document.getElementById('edit-user-title').textContent = 'Nutzer bearbeiten: ' + username;
+  document.getElementById('edit-password').value = '';
+  document.getElementById('edit-isadmin').checked = isadmin;
+
+  const teams = await api('/api/admin/teams') || [];
+  const sel = document.getElementById('edit-user-team');
+  sel.innerHTML = '<option value="">— kein Team —</option>' +
+    teams.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+
+  if (team_id) sel.value = team_id;
+  else sel.value = "";
+
+  openModal('modal-edit-user');
+}
+
+async function saveEditUser(e) {
+  e.preventDefault();
+  const id = document.getElementById('edit-userid').value;
+  const body = {};
+  
+  const pw = document.getElementById('edit-password').value;
+  if (pw) body.password = pw;
+  
+  body.isadmin = document.getElementById('edit-isadmin').checked;
+  const tid = parseInt(document.getElementById('edit-user-team').value);
+  body.team_id = isNaN(tid) ? null : tid;
+
   try {
-    await api('/api/admin/users/' + id, {method:'DELETE'});
-    toast('Nutzer gelöscht.', 'ok');
+    await api('/api/admin/users/' + id, {method:'PATCH', body: JSON.stringify(body)});
+    toast('Nutzer aktualisiert.', 'ok');
+    closeModal('modal-edit-user');
     loadAdminUsers();
     loadKPIs();
-  } catch(e) { toast(e.message, 'error'); }
+  } catch(err) { 
+    toast(err.message, 'error'); 
+  }
 }
 
 // ── Admin: Teams ───────────────────────────────────────────────────────
