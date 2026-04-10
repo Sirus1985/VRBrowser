@@ -2,7 +2,7 @@ networks:
   proxy:
     driver: bridge
     name: vbrowser_proxy
-    ipam:                        # ← Subnetz definieren für statische IPs
+    ipam:
       config:
         - subnet: 172.20.0.0/24
 
@@ -22,7 +22,7 @@ services:
     restart: unless-stopped
     networks:
       proxy:
-        ipv4_address: 172.20.0.2  # ← feste IP für AdGuard
+        ipv4_address: 172.20.0.2
 
 
   traefik:
@@ -54,7 +54,7 @@ services:
     env_file:
       - .env
     dns:
-      - 172.20.0.2              # ← AdGuard-IP eintragen
+      - 172.20.0.2
     volumes:
       - ./backend.py:/app/backend.py
       - ./main.py:/app/main.py
@@ -63,14 +63,8 @@ services:
       - ./routes:/app/routes
       - ./.data:/appdata
       - /var/run/docker.sock:/var/run/docker.sock
-      # Seccomp-Profil einbinden (nur benoetigt wenn BROWSER_SECCOMP_MODE=profile)
+      # Seccomp-Profil (nur benoetigt wenn BROWSER_SECCOMP_MODE=profile)
       - /opt/vbrowser/seccomp_profile.json:/opt/vbrowser/seccomp_profile.json:ro
-    environment:
-      # --- Seccomp-Konfiguration (optional) ---
-      # BROWSER_SECCOMP_MODE: off        # off | unconfined | profile
-      # BROWSER_SECCOMP_PROFILE: /opt/vbrowser/seccomp_profile.json
-      # BROWSER_SECCOMP_IMAGES: jlesage/firefox  # kommagetrennte Image-Basisnamen
-      # BROWSER_SECCOMP_ALL_IMAGES: "false"       # true = alle Images betreffen
     networks:
       - proxy
     depends_on:
@@ -84,10 +78,10 @@ services:
       - traefik.http.routers.vbrowser-auth.entrypoints=web
       - traefik.http.routers.vbrowser-auth.service=vbrowser-backend
       - traefik.http.routers.vbrowser-auth.priority=10
-      # Definiert die Auth-Middleware im Docker-Provider
       - "traefik.http.middlewares.vbrowser-auth.forwardauth.address=http://vbrowser-backend:8080/auth/verify"
       - "traefik.http.middlewares.vbrowser-auth.forwardauth.trustForwardHeader=true"
       - "traefik.http.middlewares.vbrowser-auth.forwardauth.authResponseHeaders=X-Forwarded-User"
+
 
   cloudflared:
     image: cloudflare/cloudflared:latest

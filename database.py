@@ -24,7 +24,6 @@ def initdb():
     conn = get_conn()
     cur = conn.cursor()
 
-    # 1. users
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,7 +34,6 @@ def initdb():
         )
     """)
 
-    # 2. teams
     cur.execute("""
         CREATE TABLE IF NOT EXISTS teams (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,7 +41,6 @@ def initdb():
         )
     """)
 
-    # 3. team_admins
     cur.execute("""
         CREATE TABLE IF NOT EXISTS team_admins (
             user_id INTEGER,
@@ -52,7 +49,6 @@ def initdb():
         )
     """)
 
-    # 4. sessions (aktive Sitzungen)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS sessions (
             session_id TEXT PRIMARY KEY,
@@ -63,11 +59,11 @@ def initdb():
             token TEXT NOT NULL,
             last_seen REAL NOT NULL,
             created_at REAL NOT NULL,
-            image TEXT
+            image TEXT,
+            container_def_id INTEGER
         )
     """)
 
-    # 5. session_log (archivierte Sitzungen)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS session_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -82,7 +78,6 @@ def initdb():
         )
     """)
 
-    # 6. user_settings
     cur.execute("""
         CREATE TABLE IF NOT EXISTS user_settings (
             user_id INTEGER PRIMARY KEY,
@@ -90,7 +85,6 @@ def initdb():
         )
     """)
 
-    # 7. container_defs
     cur.execute("""
         CREATE TABLE IF NOT EXISTS container_defs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -106,63 +100,42 @@ def initdb():
     cur.execute("CREATE INDEX IF NOT EXISTS idx_log_started ON session_log(started_at)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_log_ip      ON session_log(container_ip)")
 
-    # Default-Admin
     cur.execute(
         "INSERT OR IGNORE INTO users (username, password, isadmin) VALUES (?, ?, ?)",
         ("admin", SECRETKEY, 1),
     )
     conn.commit()
 
-    # --- Migration: neue Spalten
-    try:
-        cur.execute("ALTER TABLE sessions ADD COLUMN image TEXT")
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cur.execute("ALTER TABLE session_log ADD COLUMN image TEXT")
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cur.execute("ALTER TABLE container_defs ADD COLUMN env_vars TEXT")
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cur.execute("ALTER TABLE container_defs ADD COLUMN internal_port INTEGER DEFAULT 5800")
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cur.execute("ALTER TABLE container_defs ADD COLUMN cpu_limit TEXT")
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cur.execute("ALTER TABLE container_defs ADD COLUMN mem_limit TEXT")
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cur.execute("ALTER TABLE container_defs ADD COLUMN shm_size TEXT DEFAULT '2g'")
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cur.execute("ALTER TABLE container_defs ADD COLUMN restart_policy TEXT DEFAULT 'no'")
-        conn.commit()
-    except sqlite3.OperationalError:
-        pass
+    # --- Migrationen: neue Spalten (nicht-destruktiv)
+    migrations = [
+        "ALTER TABLE sessions ADD COLUMN image TEXT",
+        "ALTER TABLE session_log ADD COLUMN image TEXT",
+        "ALTER TABLE container_defs ADD COLUMN env_vars TEXT",
+        "ALTER TABLE container_defs ADD COLUMN internal_port INTEGER DEFAULT 5800",
+        "ALTER TABLE container_defs ADD COLUMN cpu_limit TEXT",
+        "ALTER TABLE container_defs ADD COLUMN mem_limit TEXT",
+        "ALTER TABLE container_defs ADD COLUMN shm_size TEXT DEFAULT '2g'",
+        "ALTER TABLE container_defs ADD COLUMN restart_policy TEXT DEFAULT 'no'",
+        # RFC-07: per-Container Timeout-Overrides
+        "ALTER TABLE container_defs ADD COLUMN session_timeout INTEGER",
+        "ALTER TABLE container_defs ADD COLUMN max_session_duration INTEGER",
+        # RFC-07: sessions speichert container_def_id fuer Timeout-Lookup
+        "ALTER TABLE sessions ADD COLUMN container_def_id INTEGER",
+    ]
+    for sql in migrations:
+        try:
+            cur.execute(sql)
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
 
-    # Wenn Tabelle leer, Standard eintragen
     if cur.execute("SELECT COUNT(*) FROM container_defs").fetchone()[0] == 0:
         default_env = json.dumps([
             {"key": "KEEP_APP_RUNNING", "value": "1"},
             {"key": "FF_PREF_network.trr.mode", "value": "5"}
         ])
         cur.execute("""
-            INSERT INTO container_defs 
+            INSERT INTO container_defs
             (name, image, tag, is_default, internal_port, env_vars, shm_size, restart_policy)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, ("Firefox (Default)", "jlesage/firefox", "latest", 1, 5800, default_env, "2g", "no"))
@@ -242,7 +215,6 @@ def db_delete_user(userid: int):
     with get_conn() as conn:
         user = conn.execute("SELECT isadmin FROM users WHERE id=?", (userid,)).fetchone()
         if user and user["isadmin"]:
-            # check remaining admins
             admin_count = conn.execute("SELECT COUNT(*) FROM users WHERE isadmin=1").fetchone()[0]
             if admin_count <= 1:
                 return False
@@ -339,14 +311,17 @@ def db_get_team_admins(team_id: int):
 # SESSIONS
 # ---------------------------------------------------------
 def db_create_session(session_id: str, user_id: int, username: str,
-                      container_name: str, token: str, container_ip: str = None, image: str = None):
+                      container_name: str, token: str, container_ip: str = None,
+                      image: str = None, container_def_id: int = None):
     now = time.time()
     with get_conn() as conn:
         conn.execute(
             """INSERT OR REPLACE INTO sessions
-               (session_id, user_id, username, container_name, container_ip, token, last_seen, created_at, image)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (session_id, user_id, username, container_name, container_ip, token, now, now, image),
+               (session_id, user_id, username, container_name, container_ip, token,
+                last_seen, created_at, image, container_def_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (session_id, user_id, username, container_name, container_ip, token,
+             now, now, image, container_def_id),
         )
         conn.commit()
 
@@ -359,7 +334,6 @@ def db_update_heartbeat(session_id: str):
         conn.commit()
 
 def db_close_session(session_id: str):
-    """Archiviert eine Sitzung in session_log und löscht sie aus der aktiven Tabelle."""
     with get_conn() as conn:
         row = conn.execute(
             "SELECT user_id, username, container_name, container_ip, created_at, image FROM sessions WHERE session_id=?",
@@ -378,7 +352,6 @@ def db_close_session(session_id: str):
             conn.execute("DELETE FROM sessions WHERE session_id=?", (session_id,))
             conn.commit()
 
-# Alias
 def db_delete_session(session_id: str):
     db_close_session(session_id)
 
@@ -387,7 +360,7 @@ def db_list_sessions(user_id: int = None):
         if user_id:
             rows = conn.execute(
                 """SELECT s.session_id, s.username, s.container_name, s.container_ip,
-                          s.last_seen, s.created_at, u.team_id, s.image
+                          s.last_seen, s.created_at, u.team_id, s.image, s.container_def_id
                    FROM sessions s
                    LEFT JOIN users u ON s.user_id = u.id
                    WHERE s.user_id = ?""",
@@ -396,7 +369,7 @@ def db_list_sessions(user_id: int = None):
         else:
             rows = conn.execute(
                 """SELECT s.session_id, s.username, s.container_name, s.container_ip,
-                          s.last_seen, s.created_at, u.team_id, s.image
+                          s.last_seen, s.created_at, u.team_id, s.image, s.container_def_id
                    FROM sessions s
                    LEFT JOIN users u ON s.user_id = u.id"""
             ).fetchall()
@@ -415,10 +388,22 @@ def db_get_session_by_user(user_id: int):
         return to_dict(conn.execute("SELECT * FROM sessions WHERE user_id=?", (user_id,)).fetchone())
 
 def db_get_timed_out_sessions(timeout: float):
+    """Liefert Sessions deren last_seen aelter als timeout Sekunden ist (globaler Fallback)."""
     cutoff = time.time() - timeout
     with get_conn() as conn:
         rows = conn.execute("SELECT * FROM sessions WHERE last_seen < ?", (cutoff,)).fetchall()
         return [to_dict(r) for r in rows]
+
+def db_get_container_def_timeouts(container_def_id: int) -> dict:
+    """Gibt session_timeout und max_session_duration eines Container-Defs zurueck (oder None je Feld)."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT session_timeout, max_session_duration FROM container_defs WHERE id=?",
+            (container_def_id,)
+        ).fetchone()
+        if not row:
+            return {"session_timeout": None, "max_session_duration": None}
+        return {"session_timeout": row["session_timeout"], "max_session_duration": row["max_session_duration"]}
 
 # ---------------------------------------------------------
 # DASHBOARD / LOGS
@@ -522,7 +507,7 @@ def db_search_session_log(
     if search_query:
         cond.append("(sl.username LIKE ? OR sl.container_name LIKE ? OR sl.container_ip LIKE ?)")
         p.extend([f"%{search_query}%", f"%{search_query}%", f"%{search_query}%"])
-    
+
     if year:
         cond.append("strftime('%Y', datetime(sl.started_at, 'unixepoch')) = ?")
         p.append(str(year))
@@ -608,18 +593,8 @@ def db_list_container_defs(team_id: Optional[int] = None):
         result = []
         for r in rows:
             d = to_dict(r)
-            if d.get("team_ids"):
-                try: d["team_ids"] = json.loads(d["team_ids"])
-                except Exception: d["team_ids"] = []
-            else:
-                d["team_ids"] = []
-
-            if d.get("env_vars"):
-                try: d["env_vars"] = json.loads(d["env_vars"])
-                except Exception: d["env_vars"] = []
-            else:
-                d["env_vars"] = []
-                
+            d["team_ids"] = json.loads(d["team_ids"]) if d.get("team_ids") else []
+            d["env_vars"] = json.loads(d["env_vars"]) if d.get("env_vars") else []
             if team_id is not None:
                 if d["team_ids"] and team_id not in d["team_ids"]:
                     continue
@@ -652,17 +627,20 @@ def db_create_container_def(data: dict):
             conn.execute("UPDATE container_defs SET is_default=0")
         team_ids_str = json.dumps(data.get("team_ids", []))
         env_vars_str = json.dumps(data.get("env_vars", []))
-
         cur = conn.execute("""
-            INSERT INTO container_defs 
-            (name, image, tag, is_default, team_ids, internal_port, env_vars, cpu_limit, mem_limit, shm_size, restart_policy)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO container_defs
+            (name, image, tag, is_default, team_ids, internal_port, env_vars,
+             cpu_limit, mem_limit, shm_size, restart_policy,
+             session_timeout, max_session_duration)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             data["name"], data["image"], data.get("tag", "latest"),
             1 if data.get("is_default") else 0, team_ids_str,
             data.get("internal_port", 5800), env_vars_str,
             data.get("cpu_limit"), data.get("mem_limit"),
-            data.get("shm_size", "2g"), data.get("restart_policy", "no")
+            data.get("shm_size", "2g"), data.get("restart_policy", "no"),
+            data.get("session_timeout"),
+            data.get("max_session_duration"),
         ))
         conn.commit()
         return cur.lastrowid
@@ -673,10 +651,11 @@ def db_update_container_def(def_id: int, data: dict):
             conn.execute("UPDATE container_defs SET is_default=0")
         team_ids_str = json.dumps(data.get("team_ids", []))
         env_vars_str = json.dumps(data.get("env_vars", []))
-
         conn.execute("""
             UPDATE container_defs
-            SET name=?, image=?, tag=?, is_default=?, team_ids=?, internal_port=?, env_vars=?, cpu_limit=?, mem_limit=?, shm_size=?, restart_policy=?
+            SET name=?, image=?, tag=?, is_default=?, team_ids=?, internal_port=?, env_vars=?,
+                cpu_limit=?, mem_limit=?, shm_size=?, restart_policy=?,
+                session_timeout=?, max_session_duration=?
             WHERE id=?
         """, (
             data["name"], data["image"], data.get("tag", "latest"),
@@ -684,6 +663,8 @@ def db_update_container_def(def_id: int, data: dict):
             data.get("internal_port", 5800), env_vars_str,
             data.get("cpu_limit"), data.get("mem_limit"),
             data.get("shm_size", "2g"), data.get("restart_policy", "no"),
+            data.get("session_timeout"),
+            data.get("max_session_duration"),
             def_id
         ))
         conn.commit()

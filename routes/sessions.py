@@ -53,7 +53,7 @@ async def start_session(request: Request, user: dict = Depends(get_current_user)
             )
             return response
         else:
-            # Container existiert nicht oder läuft nicht → Geister-Session entfernen
+            # Container existiert nicht oder laeuft nicht -> Geister-Session entfernen
             db_delete_session(existing["session_id"])
 
     body = {}
@@ -85,7 +85,8 @@ async def start_session(request: Request, user: dict = Depends(get_current_user)
             container.name,
             token,
             container_ip,
-            container_def.get("image")
+            container_def.get("image"),
+            container_def.get("id"),       # container_def_id mitspeichern
         )
 
         url = f"https://{session_id[:8]}.{BASE_DOMAIN}/" if BASE_DOMAIN else f"http://{session_id[:8]}.localhost/"
