@@ -8,9 +8,9 @@ from database import (
     db_create_session,
     db_update_heartbeat,
     db_get_session_by_token,
-    db_get_session_by_id,       # NEU: RFC-02 Heartbeat-Validierung via session_id
+    db_get_session_by_id,
 )
-from docker_manager import stop_container, client
+from docker_manager import docker_manager
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +31,13 @@ def validate_token(token: str) -> bool:
 def cleanup_orphaned_containers():
     try:
         active = {s["container_name"] for s in db_list_sessions()}
-        for c in client.containers.list():
+        for c in docker_manager.list_vbrowser_containers():
             is_system = c.name in SYSTEM_CONTAINERS or any(
                 c.name.startswith(p) for p in SYSTEM_PREFIXES
             )
             if c.name.startswith("vbrowser-") and not is_system:
                 if c.name not in active:
-                    stop_container(c.name)
+                    docker_manager.stop_container(c.name)
                     logger.info("Startup cleanup: removed orphan %s", c.name)
     except Exception as e:
         logger.warning("Startup cleanup failed: %s", e)
@@ -52,7 +52,7 @@ def cleanup_loop():
             for session in timed_out:
                 logger.info(f"Session Timeout: {session['username']} ({session['session_id']})")
                 try:
-                    stop_container(session["container_name"])
+                    docker_manager.stop_container(session["container_name"])
                 except Exception as e:
                     logger.error(f"Fehler beim Stoppen von {session['container_name']}: {e}")
                 db_delete_session(session["session_id"])
@@ -65,7 +65,7 @@ def cleanup_loop():
                     if now - s["created_at"] > MAX_SESSION_DURATION:
                         logger.info(f"Max Duration erreicht: {s['username']} ({s['session_id']})")
                         try:
-                            stop_container(s["container_name"])
+                            docker_manager.stop_container(s["container_name"])
                         except Exception as e:
                             logger.error(f"Fehler beim Stoppen: {e}")
                         db_delete_session(s["session_id"])
@@ -75,8 +75,7 @@ def cleanup_loop():
             valid_containers = {s["container_name"] for s in all_sessions}
 
             try:
-                containers = client.containers.list()
-                for c in containers:
+                for c in docker_manager.list_vbrowser_containers():
                     is_system = c.name in SYSTEM_CONTAINERS or any(
                         c.name.startswith(p) for p in SYSTEM_PREFIXES
                     )
@@ -84,7 +83,7 @@ def cleanup_loop():
                         if c.name not in valid_containers:
                             logger.info(f"Verwaisten Container gefunden: {c.name}. Stoppe ihn...")
                             try:
-                                stop_container(c.name)
+                                docker_manager.stop_container(c.name)
                             except Exception as e:
                                 logger.error(f"Konnte verwaisten Container {c.name} nicht stoppen: {e}")
             except Exception as e:

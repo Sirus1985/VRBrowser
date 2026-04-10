@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from datetime import datetime, timezone
 
 from auth import get_current_user, require_admin
-from docker_manager import create_container, stop_container, container_exists, is_container_running, get_container_ip
+from docker_manager import docker_manager
 from config import BASE_DOMAIN, USE_TLS
 from session_manager import register_session, update_heartbeat, validate_token
 from database import (
@@ -39,8 +39,7 @@ async def start_session(request: Request, user: dict = Depends(get_current_user)
 
     existing = db_get_session_by_user(user_id)
     if existing:
-        # Prüfen, ob der Container wirklich läuft (nicht nur existiert)
-        if is_container_running(existing["container_name"]):
+        if docker_manager.is_container_running(existing["container_name"]):
             token = existing["token"]
             session_id = existing["session_id"]
             url = f"https://{session_id[:8]}.{BASE_DOMAIN}/" if BASE_DOMAIN else f"http://{session_id[:8]}.localhost/"
@@ -58,15 +57,15 @@ async def start_session(request: Request, user: dict = Depends(get_current_user)
             db_delete_session(existing["session_id"])
 
     body = {}
-    try: 
+    try:
         body = await request.json()
-    except Exception: 
+    except Exception:
         pass
 
     try:
         container_def_id = body.get("container_def_id")
         if container_def_id:
-            container_def = db_get_container_def(int(container_def_id)) 
+            container_def = db_get_container_def(int(container_def_id))
         else:
             container_def = db_get_default_container_def()
 
@@ -76,8 +75,8 @@ async def start_session(request: Request, user: dict = Depends(get_current_user)
         session_id = str(uuid.uuid4())
         token = secrets.token_urlsafe(32)
 
-        container = create_container(username, session_id, token, container_def)
-        container_ip = get_container_ip(container)
+        container = docker_manager.create_container(username, session_id, token, container_def)
+        container_ip = docker_manager.get_container_ip(container)
 
         register_session(
             session_id,
@@ -112,7 +111,7 @@ async def start_session(request: Request, user: dict = Depends(get_current_user)
 def api_stop_session(session_id: str = None, user: dict = Depends(get_current_user)):
     session = db_get_session_by_user(user["uid"])
     if session:
-        stop_container(session["container_name"])
+        docker_manager.stop_container(session["container_name"])
         db_delete_session(session["session_id"])
     return {"ok": True}
 
@@ -121,10 +120,10 @@ def api_stop_session(session_id: str = None, user: dict = Depends(get_current_us
 @router.get("/api/session/status")
 def session_status(user: dict = Depends(get_current_user)):
     session = db_get_session_by_user(user["uid"])
-    if not session: 
+    if not session:
         return {"active": False}
     return {
-        "active": is_container_running(session["container_name"]),
+        "active": docker_manager.is_container_running(session["container_name"]),
         "session_id": session["session_id"],
         "container_name": session["container_name"],
     }
@@ -135,7 +134,7 @@ def session_status(user: dict = Depends(get_current_user)):
 def reset_session(user: dict = Depends(get_current_user)):
     session = db_get_session_by_user(user["uid"])
     if session:
-        stop_container(session["container_name"])
+        docker_manager.stop_container(session["container_name"])
         db_delete_session(session["session_id"])
     return {"ok": True}
 
