@@ -70,6 +70,20 @@ def cleanup_orphaned_containers():
         logger.warning("Startup cleanup failed: %s", e)
 
 
+def _calc_sleep_interval(sessions: list) -> int:
+    """Berechnet das optimale Sleep-Intervall des Cleanup-Loops.
+    Basiert auf 1/3 des kleinsten aktiven Session-Timeouts.
+    Minimum: 10s, Maximum: 60s.
+    """
+    if not sessions:
+        return 30
+    try:
+        min_timeout = min(_effective_timeout(s) for s in sessions)
+        return max(10, min(60, min_timeout // 3))
+    except Exception:
+        return 30
+
+
 def cleanup_loop():
     logger.info("Cleanup-Loop gestartet (Timeout=%ss, MaxDuration=%ss)", SESSION_TIMEOUT, MAX_SESSION_DURATION)
     while True:
@@ -132,4 +146,11 @@ def cleanup_loop():
         except Exception as e:
             logger.error("Fehler im Cleanup-Loop: %s", e)
 
-        time.sleep(60)
+        # Dynamischer Sleep: 1/3 des kleinsten Session-Timeouts (min 10s, max 60s)
+        try:
+            current_sessions = db_list_sessions()
+            sleep_interval = _calc_sleep_interval(current_sessions)
+        except Exception:
+            sleep_interval = 30
+        logger.debug("Cleanup-Loop schlaeft %ss", sleep_interval)
+        time.sleep(sleep_interval)
