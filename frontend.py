@@ -343,16 +343,15 @@ table tbody tr:hover{background:var(--surface-offset)}
 
     <hr style="border:none;border-top:1px solid var(--divider)">
 
-    <!-- Standard-Container -->
+    <!-- Persönliche Standard-Container -->
     <div>
-      <h3 style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-4)">Standard-Container</h3>
+      <h3 style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-4)">Persönliche Standard-Container</h3>
       <div class="form-group">
         <label for="settings-default-container">Bevorzugter Container</label>
         <select id="settings-default-container" class="form-control"></select>
       </div>
     </div>
 
-    <hr style="border:none;border-top:1px solid var(--divider)">
 
     <!-- Auto-Start -->
     <div>
@@ -1652,14 +1651,15 @@ async function loadSettings() {
     const s = await api('/api/me/settings');
     document.getElementById('settings-autostart').checked = s.auto_start_session || false;
 
-    // Container-Dropdown füllen
     const sel = document.getElementById('settings-default-container');
     sel.innerHTML = allContainerDefs.map(cd =>
       `<option value="${cd.id}">${esc(cd.name)}</option>`
     ).join('');
-    // Vorausgewählten markieren (Standard-Container der Def)
-    const defCd = allContainerDefs.find(cd => cd.is_default);
-    if (defCd) sel.value = defCd.id;
+
+    // preferred_container_def_id vom Server nehmen, sonst den is_default
+    const prefId = s.preferred_container_def_id
+      || (allContainerDefs.find(cd => cd.is_default)?.id);
+    if (prefId) sel.value = prefId;
   } catch(e) {
     toast('Einstellungen konnten nicht geladen werden.', 'error');
   }
@@ -1707,8 +1707,12 @@ async function savePassword() {
 
 async function saveSettings() {
   const autostart = document.getElementById('settings-autostart').checked;
+  const containerId = parseInt(document.getElementById('settings-default-container').value) || null;
   try {
-    await api('/api/me/settings', {method:'PATCH', body: JSON.stringify({auto_start_session: autostart})});
+    await api('/api/me/settings', {method:'PATCH', body: JSON.stringify({
+      auto_start_session: autostart,
+      preferred_container_def_id: containerId
+    })});
     toast('Einstellungen gespeichert.', 'ok');
   } catch(e) { toast(e.message, 'error'); }
 }
