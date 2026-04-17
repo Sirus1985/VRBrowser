@@ -161,6 +161,7 @@ def list_sessions(user: dict = Depends(get_current_user)):
     for s in sessions:
         s["created_at"] = _ts_to_iso(s.get("created_at"))
         s["last_seen"] = _ts_to_iso(s.get("last_seen"))
+        s["status"] = "running" if docker_manager.is_container_running(s.get("container_name", "")) else "stopped"
 
     return sessions
 

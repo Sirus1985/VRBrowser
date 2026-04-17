@@ -879,6 +879,11 @@ function selectContainer(id, card) {
 }
 
 let activeSessionInterval = null;
+let _lastActivity = Date.now();
+function _trackActivity() { _lastActivity = Date.now(); }
+document.addEventListener('mousemove', _trackActivity, {passive: true});
+document.addEventListener('keydown', _trackActivity, {passive: true});
+document.addEventListener('touchstart', _trackActivity, {passive: true});
 
 async function startSession() {
   const btn = document.getElementById("btn-start");
@@ -902,8 +907,11 @@ async function startSession() {
       document.getElementById("session-fullscreen").style.display = "flex";
       if(activeSessionInterval) clearInterval(activeSessionInterval);
       activeSessionInterval = setInterval(async () => {
-        try { await api(`/api/session/${data.session_id}/heartbeat`, {method: "POST"}); } catch(e) {}
-      }, 30000);
+        const inactiveSec = (Date.now() - _lastActivity) / 1000;
+        if (inactiveSec < 25) {
+          try { await api(`/api/session/${data.session_id}/heartbeat`, {method: "POST"}); } catch(e) {}
+        }
+      }, 20000);
       window.currentRunningSessionId = data.session_id;
       toast("Browser bereit", "ok");
     }, 6000);
