@@ -141,13 +141,6 @@ def reset_session(user: dict = Depends(get_current_user)):
 
 
 
-def _ts_to_iso(ts):
-    if ts is None:
-        return None
-    try:
-        return datetime.fromtimestamp(float(ts), tz=timezone.utc).isoformat().replace("+00:00", "Z")
-    except Exception:
-        return None
 
 
 @router.get("/api/sessions")
@@ -159,8 +152,6 @@ def list_sessions(user: dict = Depends(get_current_user)):
         sessions = db_list_sessions(user["uid"])
 
     for s in sessions:
-        s["created_at"] = _ts_to_iso(s.get("created_at"))
-        s["last_seen"] = _ts_to_iso(s.get("last_seen"))
         s["status"] = "running" if docker_manager.is_container_running(s.get("container_name", "")) else "stopped"
 
     return sessions

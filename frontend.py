@@ -1049,6 +1049,7 @@ async function stopSession(id = null) {
     }
     if (currentUser && currentUser.isadmin && typeof loadAdminSessions === "function") {
       loadAdminSessions();
+      loadKPIs();
     }
   } catch(e) {
     toast(e.message, "error");
