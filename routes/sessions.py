@@ -86,7 +86,7 @@ async def start_session(request: Request, user: dict = Depends(get_current_user)
             token,
             container_ip,
             container_def.get("image"),
-            container_def.get("id"),       # container_def_id mitspeichern
+            container_def.get("id"),
         )
 
         url = f"https://{session_id[:8]}.{BASE_DOMAIN}/" if BASE_DOMAIN else f"http://{session_id[:8]}.localhost/"
@@ -110,7 +110,14 @@ async def start_session(request: Request, user: dict = Depends(get_current_user)
 @router.post("/api/session/stop")
 @router.delete("/api/session/{session_id}")
 def api_stop_session(session_id: str = None, user: dict = Depends(get_current_user)):
-    session = db_get_session_by_user(user["uid"])
+    # Admin darf jede Session stoppen, User nur seine eigene
+    if user.get("isadmin") or user.get("admin"):
+        session = db_get_session_by_id(session_id) if session_id else db_get_session_by_user(user["uid"])
+    else:
+        session = db_get_session_by_user(user["uid"])
+        if session and session_id and session["session_id"] != session_id:
+            session = None
+
     if session:
         docker_manager.stop_container(session["container_name"])
         db_delete_session(session["session_id"])
