@@ -1049,7 +1049,7 @@ async function stopSession(id = null) {
     }
     if (currentUser && currentUser.isadmin && typeof loadAdminSessions === "function") {
       loadAdminSessions();
-      loadKPIs();
+      setTimeout(() => loadKPIs(), 1500);
     }
   } catch(e) {
     toast(e.message, "error");
