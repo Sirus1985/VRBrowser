@@ -121,6 +121,8 @@ def initdb():
         "ALTER TABLE container_defs ADD COLUMN max_session_duration INTEGER",
         # RFC-07: sessions speichert container_def_id fuer Timeout-Lookup
         "ALTER TABLE sessions ADD COLUMN container_def_id INTEGER",
+        "ALTER TABLE user_settings ADD COLUMN preferred_container_def_id INTEGER",
+        
     ]
     for sql in migrations:
         try:
@@ -225,19 +227,24 @@ def db_delete_user(userid: int):
 # ---------------------------------------------------------
 # SETTINGS
 # ---------------------------------------------------------
-def db_update_user_settings(user_id: int, auto_start_session: bool):
+def db_update_user_settings(user_id: int, auto_start_session: bool, preferred_container_def_id: int = None):
     with get_conn() as conn:
         conn.execute(
-            "INSERT OR REPLACE INTO user_settings (user_id, auto_start_session) VALUES (?, ?)",
-            (user_id, 1 if auto_start_session else 0),
+            "INSERT OR REPLACE INTO user_settings (user_id, auto_start_session, preferred_container_def_id) VALUES (?, ?, ?)",
+            (user_id, 1 if auto_start_session else 0, preferred_container_def_id),
         )
         conn.commit()
 
 def db_get_user_settings(user_id: int) -> dict:
     with get_conn() as conn:
-        row = conn.execute("SELECT auto_start_session FROM user_settings WHERE user_id=?", (user_id,)).fetchone()
-        return {"auto_start_session": bool(row["auto_start_session"]) if row else False}
-
+        row = conn.execute(
+            "SELECT auto_start_session, preferred_container_def_id FROM user_settings WHERE user_id=?",
+            (user_id,)
+        ).fetchone()
+        return {
+            "auto_start_session": bool(row["auto_start_session"]) if row else False,
+            "preferred_container_def_id": row["preferred_container_def_id"] if row else None,
+        }
 # ---------------------------------------------------------
 # TEAMS
 # ---------------------------------------------------------

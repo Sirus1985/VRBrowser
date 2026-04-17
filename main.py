@@ -15,6 +15,7 @@ from routes.containers import router as containers_admin_router
 from routes.containers import user_router as containers_user_router
 from session_manager import cleanup_loop, cleanup_orphaned_containers
 from frontend import get_html
+from routes.user_settings import router as user_settings_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,7 +31,7 @@ app.include_router(sessions_router)
 app.include_router(admin_logging_router)
 app.include_router(containers_admin_router)
 app.include_router(containers_user_router)
-
+app.include_router(user_settings_router)
 
 @app.on_event("startup")
 def startup():

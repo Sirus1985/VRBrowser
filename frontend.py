@@ -300,8 +300,8 @@ table tbody tr:hover{background:var(--surface-offset)}
   <main class="main">
     <!-- Nutzer-Navigation -->
     <div id="user-nav" class="tabs">
-      <button class="tab-btn active" onclick="showTab('tab-start','user-nav',this)">Browser starten</button>
-    </div>
+    <button class="tab-btn active" onclick="showTab('tab-start','user-nav',this)">Browser starten</button>
+<button class="tab-btn" onclick="showTab('tab-settings','user-nav',this);loadSettings()">Einstellungen</button>    </div>
 
     <!-- Tab: Browser starten -->
     <div id="tab-start" class="tab-panel active">
@@ -320,6 +320,55 @@ table tbody tr:hover{background:var(--surface-offset)}
         <p style="color:var(--text-muted);font-size:var(--text-sm)">Lädt…</p>
       </div>
     </div>
+
+<!-- Tab: Einstellungen -->
+<div id="tab-settings" class="tab-panel">
+  <h2 style="font-size:var(--text-lg);font-weight:600;margin-bottom:var(--space-6)">Einstellungen</h2>
+
+  <div class="card" style="max-width:560px;display:flex;flex-direction:column;gap:var(--space-6)">
+
+    <!-- Passwort -->
+    <div>
+      <h3 style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-4)">Passwort ändern</h3>
+      <div class="form-group">
+        <label for="settings-pw-new">Neues Passwort</label>
+        <input id="settings-pw-new" class="form-control" type="password" placeholder="Neues Passwort…">
+      </div>
+      <div class="form-group">
+        <label for="settings-pw-confirm">Passwort bestätigen</label>
+        <input id="settings-pw-confirm" class="form-control" type="password" placeholder="Wiederholen…">
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="savePassword()">Passwort speichern</button>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--divider)">
+
+    <!-- Standard-Container -->
+    <div>
+      <h3 style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-4)">Standard-Container</h3>
+      <div class="form-group">
+        <label for="settings-default-container">Bevorzugter Container</label>
+        <select id="settings-default-container" class="form-control"></select>
+      </div>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--divider)">
+
+    <!-- Auto-Start -->
+    <div>
+      <h3 style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-2)">Auto-Start</h3>
+      <label style="display:flex;align-items:center;gap:var(--space-3);cursor:pointer;font-size:var(--text-sm)">
+        <input type="checkbox" id="settings-autostart" style="accent-color:var(--primary);width:16px;height:16px">
+        Browser-Container nach Anmeldung automatisch starten
+      </label>
+    </div>
+
+    <div>
+      <button class="btn btn-primary" onclick="saveSettings()">Einstellungen speichern</button>
+    </div>
+
+  </div>
+</div>
 
     <!-- Admin-Navigation (Admin + TeamAdmin) -->
     <div id="admin-section" style="display:none;margin-top:var(--space-10)">
@@ -1594,6 +1643,47 @@ function fmtDate(s) {
     day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'
   });
 }
+
+// ── Einstellungen ──────────────────────────────────────────────────────
+async function loadSettings() {
+  try {
+    const s = await api('/api/me/settings');
+    document.getElementById('settings-autostart').checked = s.auto_start_session || false;
+
+    // Container-Dropdown füllen
+    const sel = document.getElementById('settings-default-container');
+    sel.innerHTML = allContainerDefs.map(cd =>
+      `<option value="${cd.id}">${esc(cd.name)}</option>`
+    ).join('');
+    // Vorausgewählten markieren (Standard-Container der Def)
+    const defCd = allContainerDefs.find(cd => cd.is_default);
+    if (defCd) sel.value = defCd.id;
+  } catch(e) {
+    toast('Einstellungen konnten nicht geladen werden.', 'error');
+  }
+}
+
+async function savePassword() {
+  const pw = document.getElementById('settings-pw-new').value;
+  const pw2 = document.getElementById('settings-pw-confirm').value;
+  if (!pw) return toast('Bitte ein Passwort eingeben.', 'error');
+  if (pw !== pw2) return toast('Passwörter stimmen nicht überein.', 'error');
+  try {
+    await api('/api/me/settings', {method:'PATCH', body: JSON.stringify({password: pw})});
+    document.getElementById('settings-pw-new').value = '';
+    document.getElementById('settings-pw-confirm').value = '';
+    toast('Passwort gespeichert.', 'ok');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function saveSettings() {
+  const autostart = document.getElementById('settings-autostart').checked;
+  try {
+    await api('/api/me/settings', {method:'PATCH', body: JSON.stringify({auto_start_session: autostart})});
+    toast('Einstellungen gespeichert.', 'ok');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
 </script>
 </body>
 </html>"""
