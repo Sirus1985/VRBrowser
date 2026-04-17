@@ -5,13 +5,5 @@ certs/
 browser.db
 adguard/
 */__pycache__/
-routes/__pycache__/
-/routes/__pycache__/*
-/routes/__pycache__
-.data/browser.db
-.data/browser.db
-routes/__pycache__/sessions.cpython-311.pyc
-.data/browser.db
-.data/browser.db
-browser.db
-.data/browser.db
+.data/
+
