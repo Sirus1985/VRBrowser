@@ -4,6 +4,6 @@ certs/
 *.env
 browser.db
 adguard/
-*/__pycache__/
+__pycache__/
+__pycache__/*
 .data/
-
