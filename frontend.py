@@ -865,6 +865,8 @@ function initApp() {
     document.getElementById('tab-btn-log').style.display = '';
   }
   loadContainerDefs();
+  checkAutoStart();
+
 }
 
 // ── Tabs ───────────────────────────────────────────────────────────────
@@ -1660,6 +1662,33 @@ async function loadSettings() {
     if (defCd) sel.value = defCd.id;
   } catch(e) {
     toast('Einstellungen konnten nicht geladen werden.', 'error');
+  }
+}
+
+async function checkAutoStart() {
+  try {
+    const s = await api('/api/me/settings');
+    if (!s || !s.auto_start_session) return;
+
+    let tries = 0;
+    while (!allContainerDefs.length && tries < 10) {
+      await new Promise(r => setTimeout(r, 300));
+      tries++;
+    }
+
+    const containerId = s.preferred_container_def_id
+      || (allContainerDefs.find(cd => cd.is_default)?.id)
+      || (allContainerDefs[0]?.id);
+
+    if (!containerId) return;
+
+    const card = document.querySelector(`.container-card[data-id="${containerId}"]`);
+    if (card) selectContainer(containerId, card);
+    else selectedContainerDefId = containerId;
+
+    await startSession();
+  } catch(e) {
+    toast('Auto-Start fehlgeschlagen: ' + e.message, 'error');
   }
 }
 
