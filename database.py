@@ -681,3 +681,5 @@ def db_delete_container_def(def_id: int) -> bool:
         conn.execute("DELETE FROM container_defs WHERE id=?", (def_id,))
         conn.commit()
         return True
+
+#Test
