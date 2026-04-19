@@ -91,7 +91,16 @@ def initdb():
 
     cur.execute("CREATE INDEX IF NOT EXISTS idx_log_user    ON session_log(user_id)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_log_started ON session_log(started_at)")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_log_ip      ON session_log(container_ip)")  # ← NEU
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_log_ip      ON session_log(container_ip)")
+
+    # ---- Custom CSS ----
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS custom_css (
+            id  INTEGER PRIMARY KEY CHECK (id = 1),
+            css TEXT NOT NULL DEFAULT ''
+        )
+    """)
+    cur.execute("INSERT OR IGNORE INTO custom_css (id, css) VALUES (1, '')")
 
     cur.execute(
         "INSERT OR IGNORE INTO users (username, password, isadmin) VALUES (?, ?, ?)",
@@ -449,3 +458,17 @@ def db_search_session_log(
             LIMIT 500
         """, params).fetchall()
     return [dict(r) for r in rows]
+
+
+# ---- Custom CSS ----
+
+def db_get_custom_css() -> str:
+    with get_conn() as conn:
+        row = conn.execute("SELECT css FROM custom_css WHERE id=1").fetchone()
+        return row["css"] if row else ""
+
+
+def db_set_custom_css(css: str):
+    with get_conn() as conn:
+        conn.execute("INSERT OR REPLACE INTO custom_css (id, css) VALUES (1, ?)", (css,))
+        conn.commit()
