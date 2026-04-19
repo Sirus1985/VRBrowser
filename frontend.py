@@ -263,7 +263,7 @@ table tbody tr:hover{background:var(--surface-offset)}
     <div id="login-error" class="login-error"></div>
     <div class="form-group">
       <label for="login-user">Benutzername</label>
-      <input id="login-user" class="form-control" type="text" autocomplete="username" placeholder="admin">
+      <input id="login-user" class="form-control" type="text" autocomplete="username" >
     </div>
     <div class="form-group">
       <label for="login-pass">Passwort</label>
