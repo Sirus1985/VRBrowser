@@ -10,6 +10,7 @@ from routes.users import router as users_router
 from routes.teams import router as teams_router
 from routes.sessions import router as sessions_router
 from routes.admin_logging import router as admin_logging_router
+from routes.admin_css import router as admin_css_router
 from frontend import get_html
 
 from session_manager import cleanup_loop
@@ -27,6 +28,7 @@ app.include_router(users_router)
 app.include_router(teams_router)
 app.include_router(sessions_router)
 app.include_router(admin_logging_router)
+app.include_router(admin_css_router)
 
 
 @app.on_event("startup")
